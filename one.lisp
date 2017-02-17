@@ -231,12 +231,27 @@
 (defun inc (x)
   (+ x 1))
 
+;;;recurse
 (defun product (term a next b)
   (if (> a b)
-      1
+      1.0
       (* (funcall term a)
 	 (product term (funcall next a) next b))))
 
+(defun factorial (b)
+  (defun inc (a)
+    (+ a 1))
+  (defun fy (a)
+    (/ a (inc a)))
+ 
+  (defun term (a)
+    (if (evenp a)
+	(fy a)
+	(/ 1 (fy a))))
+
+  (product #'term 2 #'inc b))
+
+;;;iter
 (defun product (term a next b)
   (defun iter (a result)
     (if (> a b)
@@ -244,4 +259,185 @@
 	(iter (funcall next a)
 	      (* (funcall term a)
 		 result))))
-  (iter a 1))
+  (iter a 1.0))
+
+;;;;1.32
+;;;recurse
+(defun accumulate (combiner null-value term a next b)
+  (if (> a b)
+      null-value
+      (funcall combiner (funcall term a)
+	       (accumulate combiner null-value term (funcall next a) next b))))
+;;;iter
+(defun accumulate (combiner null-value term a next b)
+  (defun iter (a result)
+    (if (> a b)
+	result
+	(iter (funcall next a)
+	      (funcall combiner result (funcall term a)))))
+  (iter a null-value))
+
+(defun sum (term a next b)
+  (accumulate #'+ 0 term a next b))
+
+(defun product (term a next b)
+  (accumulate #'* 1.0 term a next b))
+
+;;;;1.33
+;;;recurse
+(defun filtered-accumulate (combiner null-value term a next b filter)
+  (cond ((> a b) null-value)
+	((funcall filter a)
+	 (funcall combiner (funcall term a)
+		  (filtered-accumulate combiner
+				       null-value
+				       term
+				       (funcall next a)
+				       next
+				       b
+				       filter)))
+	('t (filtered-accumulate combiner
+				 null-value
+				 term
+				 (funcall next a)
+				 next
+				 b
+				 filter))))
+
+(defun sum-prime (a b)
+  (defun iden (x) x)
+  (filtered-accumulate #'+ 0 #'iden a #'inc b #'primep))
+
+(defun my-gcd (a b)
+  (if (= b 0)
+      a
+      (my-gcd b (mod a b))))
+
+(defun sum-prime-n (n)
+  (defun iden (x) x)
+  (defun filter (i)
+    (= 1 (my-gcd n i)))
+  (filtered-accumulate #'* 1.0 #'iden 1 #'inc n #'filter))
+
+;;;;1.34
+;;;调用(f f)的过程如下：(f f)=>(f 2)=>(2 2),2不是函数，执行失败。
+
+;;;;折半法寻找平方根
+
+(defun search (f neg-p pos-p)
+  (let ((mid-p (average neg-p pos-p)))
+    (if (close-enoughp neg-p pos-p)
+	mid-p
+	(let ((test-value (funcall f mid-p)))
+	  (cond ((positivep test-value) (search f neg-p mid-p))
+		((negativep test-value) (search f mid-p pos-p))
+		(t mid-p))))))
+
+;;;;1.35
+
+
+(defun fixed-point (f first-guess)
+  (defun close-enoughp (a b)
+    (< (abs (- a b)) 0.0001))
+  
+  (defun try (guess)
+    (let ((next (funcall f guess)))
+      (if (close-enoughp guess next)
+	  next
+	  (try next))))
+  
+  (try first-guess))
+;;;两边乘x，变换为x^2-x-1=0的解。
+;;;(fixed-point #'(lambda (x) (+ 1 (/ 1 x))) 1)
+;;;1.618
+
+;;;;1.36
+
+(defun fixed-point (f guess)
+  (defun close-enoughp (a b)
+    (< (abs (- a b)) 0.0001))
+  (defun try (guess)
+    (let ((next (funcall f guess)))
+      (format t "~a => ~a ~%" guess next)
+      (if (close-enoughp guess next)
+	  next
+	  (try next))))
+  (try guess))
+
+;;;不采用平均阻尼技术的函数
+;;(fixed-point #'(lambda (x) (/ (log 1000) (log x))) 10)
+;;28步
+;;;采用平均阻尼技术就是两边都加x，然后两边都除以2.
+;;(fixed-point #'(lambda (x) (/ (+ x (/ (log 1000) (log x))) 2)) 10)
+;;8步
+;;;结果表明采用平均阻尼技术的运算步数要少2/3左右。
+
+;;;;1.37
+;;;recurse
+(defun cont-frac (n d k)
+  (defun recu (i)
+    (let ((val-n (funcall n i))
+	  (val-d (funcall d i)))
+      (if (= i k)
+	  (/ val-n val-d)
+	  (/ val-n (+ val-d (recu (+ i 1)))))))
+  (recu 1))
+;;;iter
+(defun cont-frac (n d k)
+  (defun iter (i result)
+    (let ((val-n (funcall n i))
+	  (val-d (+ result (funcall d i))))
+      (if (= i 1)
+	  (/ val-n val-d)
+	  (iter (- i 1)
+		(/ val-n val-d)))))
+  (iter k 0))
+
+;;;需要k=11才行。
+
+;;;;1.38
+;;;先写思路：观察Di发现在2、5、8、11...的位置均为偶数递增。进一步观察这些位置满足3n-1的通项公式。下面就是要分析n与i的关系。先列3n-1=i;=> 3n=i+1;n必须是大于0的整数。所以可以得出i+1为3得整数倍得时候得位置就是所要得那个位置。更进一步说，就是i+1与3的最大公约数就是3.即(gcd i 3)=3;再分析Di与i的关系由Di=2n 推导出Di=2*(i+1)/3;
+(defun fd (i)
+  (defun is-positionp ()
+    (= 3 (gcd (+ i 1) 3)))
+  (if (is-positionp)
+      (/ (* 2 (+ i 1))
+	 3)
+      1))
+;;(+ 2 (cont-frac #'(lambda (x) 1.0) #'fd 10))
+
+;;;;1.39
+;;;recu
+(defun tan-cf (x k)
+  (defun d (i)
+    (- (* 2 i) 1))
+  (defun n (i)
+    (if (= i 1)
+	x
+	(square x)))
+
+  (defun cont-frac-recu (n d k i)
+    (let ((val-n (funcall n i))
+	  (val-d (funcall d i)))
+      (if (= i k)
+	  (/ val-n val-d)
+	  (/ val-n 
+	     (- val-d (cont-frac-recu n d k (+ i 1)))))))
+
+  (cont-frac-recu #'n #'d k 1))
+;;;iter
+(defun tan-cf (x k)
+  (defun n (i)
+    (if (= i 1)
+	x
+	(square x)))
+  (defun d (i)
+    (- (* 2 i) 1))
+  (defun cont-frac-iter (i result)
+    (let ((val-n (n i))
+	  (val-d (- (d i) result)))
+      (if (= i 1)
+	  (/ val-n val-d)
+	  (cont-frac-iter (- i 1)
+			  (/ val-n val-d)))))
+  (cont-frac-iter k 0))
