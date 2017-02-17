@@ -324,15 +324,21 @@
 
 ;;;;折半法寻找平方根
 
-(defun search (f neg-p pos-p)
+(defun my-search (f neg-p pos-p)
+  
   (let ((mid-p (average neg-p pos-p)))
     (if (close-enoughp neg-p pos-p)
 	mid-p
 	(let ((test-value (funcall f mid-p)))
-	  (cond ((positivep test-value) (search f neg-p mid-p))
-		((negativep test-value) (search f mid-p pos-p))
+	  (cond ((positivep test-value) (my-search f neg-p mid-p))
+		((negativep test-value) (my-search f mid-p pos-p))
 		(t mid-p))))))
-
+(defun close-enoughp (a b)
+  (< (abs (- a b)) 0.00001))
+(defun positivep (x)
+  (> x 0))
+(defun negativep (x)
+  (< x 0))
 ;;;;1.35
 
 
@@ -441,3 +447,23 @@
 	  (cont-frac-iter (- i 1)
 			  (/ val-n val-d)))))
   (cont-frac-iter k 0))
+
+;;;; 函数作为返回值
+(defun average-damp (f)
+  (defun average (a b)
+    (/ (+ a b) 2))
+  #'(lambda (x) (average x (funcall f x))))
+
+(defun fixed-point (f guess)
+  (defun try (guess)
+    (let ((next (funcall f guess)))
+      (if (close-enoughp guess next)
+	  next
+	  (try next))))
+  (defun close-enoughp (a b)
+    (< (abs (- a b)) 0.0001))
+  (try guess))
+
+(defun my-sqrt (x)
+  (fixed-point (average-damp #'(lambda (y) (/ x y)))
+	       1.0))
