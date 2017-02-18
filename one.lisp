@@ -467,3 +467,124 @@
 (defun my-sqrt (x)
   (fixed-point (average-damp #'(lambda (y) (/ x y)))
 	       1.0))
+
+;;;;牛顿法
+
+(defun deriv (f)
+  (let ((dx 0.00001))
+    #'(lambda (x) 
+	(/ (- (funcall f (+ x dx))
+	      (funcall f x))
+	   dx))))
+(defun newton-transform (f)
+  #'(lambda (x)
+      (- x
+	 (/ (funcall f x)
+	    (funcall (deriv f) x)))))
+  
+(defun newton-method (g guess)
+  (fixed-point (newton-transform g) guess))
+
+(defun my-sqrt (x)
+  (newton-method #'(lambda (y) (- (square y) x))
+		 1.0))
+
+;;;;
+(defun cubic (a b c)
+  (defun cube (x)
+    (* x x x))
+  (defun square (x)
+    (* x x))
+  #'(lambda (x)
+      (+ (cube x)
+	 (* a
+	    (square x))
+	 (* b x)
+	 c)))
+
+;;;;1.41
+(defun my-double (f)
+  #'(lambda (x)
+      (funcall f
+	       (funcall f x))))
+
+;;;(funcall (funcall (my-double (my-double #'mydouble)) #'inc) 5)
+;;;21
+
+;;;;1.42
+(defun compose (f g)
+  #'(lambda (x)
+      (funcall f
+	       (funcall g x))))
+;;;;1.43
+;;;recurse
+(defun repeated (f n)
+  (if (= n 1)
+      f
+      #'(lambda (x)
+	   (funcall f
+		    (funcall (repeated f (- n 1))
+			     x)))))
+
+;;;iter
+(defun repeated (f n)
+  (defun iter (i result)
+    (if (= i n)
+	result
+	(iter (+ i 1)
+	      #'(lambda (x)
+		  (funcall f
+			   (funcall result x))))))
+  (iter 1 f))
+
+;;;利用compose的版本
+;;recurse
+(defun repeated (f n)
+  (if (= n 1)
+      f
+      (compose f
+	       (repeated f (- n 1)))))
+
+;;iter
+(defun repeated (f n)
+  (defun iter (i result)
+    (if (= i n)
+	result
+	(iter (+ i 1)
+	      (compose f result))))
+  (iter 1 f))
+;;你看，抽象是多么的重要。
+
+(defun smooth (f)
+  (let ((dx 0.0001))
+    #'(lambda (x)
+	(/ (+ (funcall f (- x dx))
+	      (funcall f x)
+	      (funcall f (- x dx)))
+	   3))))
+(defun smooth-n-times (f n)
+  (repeated (smooth f) n))
+
+;;;;1.45
+(defun if-closep (f)
+  (let ((dy 0.01))
+    (defun close-enoughp (a b)
+      (< (abs (- a b)) dy)))
+  (defun try (guess n)
+    (let ((next (funcall f guess)))
+      (cond ((close-enoughp guess next) t)
+	    ((= n 0) nil)
+	    (t (try next (- n 1))))))
+  (try 20.0 20))
+(defun average-damp (f)
+  #'(lambda (x)
+      (/ (+ x
+	    (funcall f x))
+	 2)))
+(defun average-damp-times (f)
+  (defun try (f result)
+    (if (if-closep f)
+	result
+	(try (average-damp f)
+	     (+ result 1))))
+  (try f 0))
