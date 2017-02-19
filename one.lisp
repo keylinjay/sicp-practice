@@ -335,6 +335,8 @@
 		(t mid-p))))))
 (defun close-enoughp (a b)
   (< (abs (- a b)) 0.00001))
+(defun average (a b)
+  (/ (+ a b) 2))
 (defun positivep (x)
   (> x 0))
 (defun negativep (x)
@@ -566,25 +568,55 @@
   (repeated (smooth f) n))
 
 ;;;;1.45
-(defun if-closep (f)
-  (let ((dy 0.01))
-    (defun close-enoughp (a b)
-      (< (abs (- a b)) dy)))
-  (defun try (guess n)
-    (let ((next (funcall f guess)))
-      (cond ((close-enoughp guess next) t)
-	    ((= n 0) nil)
-	    (t (try next (- n 1))))))
-  (try 20.0 20))
+	    
+     
+
 (defun average-damp (f)
   #'(lambda (x)
       (/ (+ x
 	    (funcall f x))
 	 2)))
-(defun average-damp-times (f)
-  (defun try (f result)
-    (if (if-closep f)
-	result
-	(try (average-damp f)
-	     (+ result 1))))
-  (try f 0))
+(defun average-damp-n-times (f n)
+  (funcall (repeated #'average-damp n) f))
+
+(defun my-expt (b e)
+  (cond ((= e 0) 1)
+	((evenp e) (my-expt (square b) (/ e 2)))
+	(t (* b (my-expt b (- e 1))))))
+
+(defun nth-root (x n)
+  (labels ((f-nth-root ()
+	     #'(lambda (y)
+		 (/ x
+		    (my-expt y (- n 1)))))
+	   (log2 (n)
+	     (cond ((> (/ n 2) 1) (+ 1 (log2 (/ n 2))))
+		   ((< (/ n 2) 1) 0)
+		   (t 1))))
+    (fixed-point (average-damp-n-times (f-nth-root) (log2 n))
+		 1.0)))
+
+;;;;1.46
+(defun iterative-improve (fenoughp fimprove)
+  (labels ((try (x)
+
+	     (if (funcall fenoughp x)
+		 x
+		 (try (funcall fimprove x)))))
+  #'try))
+
+(defun my-sqrt (x)
+  (labels ((fenoughp (guess)
+	     (let ((dy 0.0001))
+	       (< (abs (- (square guess) x)) dy)))
+	   (average (a b)
+	     (/ (+ a b) 2))
+	   (fimprove (y)
+	     (average y (/ x y))))
+    (funcall (iterative-improve #'fenoughp #'fimprove) 1.0)))
+
+(defun fixed-point (f guess)
+  (labels ((fenoughp (guess)
+	     (< (abs (- (funcall f guess) guess)) 0.00001)))
+    (funcall (iterative-improve #'fenoughp f) guess)))
+	       
