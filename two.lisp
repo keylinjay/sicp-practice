@@ -274,27 +274,131 @@
 	(y1 (lower-bound y))
 	(y2 (upper-bound y)))
     
-    (cond ((and (>= x1 0) (>= x2 0)) (cond ((and (>= y1 0) (>= y2 0))
-					    (make-interval (* x1 y1) 
-							   (* y1 y2)))
-					   ((and (< y1 0) (< y2 0))
-					    (make-interval (* x2 y2) 
-							   (* x1 y1)))
-					   (t (make-interval (* x2 y1) 
-							     (* x2 y2)))))
-	  ((and (< x1 0) (< x2 0)) (cond ((and (>= y1 0) (>= y2 0))
-					  (make-interval (* x2 y2)
-							 (* x1 y1)))
-					 ((and (< y1 0) (< y2 0))
-					  (make-interval (* x1 y1)
-							 (* x2 y2)))
-					 (t (make-interval (* x2 y2)
-							   (* x2 y1)))))
-	  (t (cond ((and (>= y1 0) (>= y2 0))
+    (cond ((>= x1 0) (cond ((>= y1 0)
+			    (make-interval (* x1 y1) (* x2 y2)))
+			   ((< y2 0)
+			    (make-interval (* x2 y2) (* x1 y1)))
+			   (t (make-interval (* x2 y1) (* x2 y2)))))
+	  ((< x2 0) (cond ((>= y1 0)
+			   (make-interval (* x2 y2) (* x1 y1)))
+			  ((< y2 0)
+			   (make-interval (* x1 y1) (* x2 y2)))
+			  (t (make-interval (* x2 y2) (* x2 y1)))))
+	  (t (cond ((>= y1 0)
 		    (make-interval (* x1 y2) (* x2 y2)))
-		   ((and (< y1 0) (< y2 0))
+		   ((< y2 0)
 		    (make-interval (* x2 y2) (* x1 y2)))
-		   (t (make-interval (* x1 y2) (* x2 y2))))))))
+		   (t (make-interval (min (* x1 y2) (* x2 y1))
+				     (max (* x1 y1) (* x2 y2)))))))))
+
+
+;;;;2.12
+
+(defun make-center-percent (c p)
+  (make-interval (- c (* c p 0.01)) (+ c (* c p 0.01))))
+
+(defun center (i)
+  (let ((x (lower-bound i))
+	(y (upper-bound i)))
+    (/ (+ x y) 2)))
+
+(defun percent (i)
+  (let ((x (lower-bound i))
+	(y (upper-bound i)))
+    (* 100
+       (/ (/ (- y x)
+	     2)
+	  (center i)))))
+
+;;;;2.13
+
+;;;((x*(1-p1)),x*(1+p1)) * ((y*(1-p2)),(y*(1+p2))) 假定都为正可以推导出
+;;;(x*y*(1-p1)*(1-p2)),(x*y*(1+p1)*(1+p2))化简
+;;;xy*(1-(p1+p2-p1p2)),xy*(1+(p1+p2+p1p2)) 在p很小时，p1p2可以忽略为0
+;;;得新乘积得百分比为(p1+p2)。
+
+;;;;2.14
+
+(let ((r1 (make-center-percent 4 0.1))
+      (r2 (make-center-percent 2 0.1))
+      (one (make-interval 1 1)))
+  (labels ((par1 (r1 r2)
+	     (div-interval (mul-interval r1 r2)
+			   (add-interval r1 r2)))
+	   (par2 (r1 r2)
+	     (div-interval one
+			   (add-interval (div-interval one r1)
+					 (div-interval one r2)))))
+    (format t "~%")
+    (princ (par1 r1 r2))
+    (format t "~%")
+    (princ (par2 r1 r2))
+    (format t "~%")
+    (princ (div-interval r1 r1))
+    (format t "~%")
+    (princ (div-interval r1 r2))))
+		      
 	  
-					   
+;;;;2.15
+
+;;;那个人说的是对的。确定得范围量比如（1 1）不会影响结果，但是不确定的量算会增加误差范围。
+
+;;;;2.16
+
+;;;以我现在的知识储备来答，不可能。除非有个程序能自动把运算先化简为最优形式（不确定量最少）。然后再计算。
+
+;;;;2.17
+
+(defun last-pair (lst)
+  (if (null (cdr lst))
+      lst
+      (last-pair (cdr lst))))
+
+;;;;2.18
+
+;;;recurse
+(defun my-reverse (lst)
+  (if (null lst)
+      nil
+      (append (my-reverse (cdr lst)) 
+	      (cons (car lst) nil))))
+
+;;;iter
+(defun my-reverse (lst)
+  (labels ((iter (lst res)
+	     (if (null lst)
+		 res
+		 (iter (cdr lst)
+		       (cons (car lst) res)))))
+    (iter lst nil)))
+
+;;;;2.19
+
+(defun cc (amount coin-values)
+  (cond ((= amount 0) 1)
+	((or (< amount 0) (no-morep coin-values)) 0)
+	(t 
+	 (+ (cc amount 
+		(except-first-denomination coin-values))
+	    (cc (- amount 
+		   (first-denomination coin-values))
+		coin-values)))))
+
+(defun no-morep (lst)
+  (null lst))
+
+(defun except-first-denomination (lst)
+  (cdr lst))
+
+(defun first-denomination (lst)
+  (car lst))
+
+(let ((us-coins (list 50 25 10 5 1))
+      (uk-coins (list 100 50 20 10 5 2 1 0.5)))
+  (format t "~%~A" (cc 100 us-coins))
+  (format t "~%~A" (cc 100 uk-coins)))
+
+;;;;2.20
+
+
 					  
