@@ -400,5 +400,131 @@
 
 ;;;;2.20
 
-
+;;;recu
+(defun same-parity (x &rest rest)
+  (labels ((filter (f lst)
+	     (if (null lst)
+		 '()
+		 (if (funcall f (car lst))
+		     (cons (car lst) (filter f (cdr lst)))
+		     (filter f (cdr lst))))))
+    (if (evenp x)
+	(cons x (filter #'evenp rest))
+	(cons x (filter #'oddp rest)))))
 					  
+;;;iter
+(defun same-parity (x &rest rest)
+  (let ((m (mod x 2)))
+    (labels ((iter (lst res)
+	       (if (null lst)
+		   (reverse res)
+		   (iter (cdr lst)
+			 (if (= (mod (car lst) 2) m)
+			     (cons (car lst) res)
+			     res)))))
+      (iter rest (list x)))))
+
+;;;;2.21
+
+(defun square-list (lst)
+  (mapcar #'(lambda (x) (* x x)) lst))
+
+(defun square-list (items)
+  (if (null items)
+      nil
+      (cons (square (car items))
+	    (square-list (cdr items)))))
+
+;;;;2.22
+
+(defun square-list (items)
+  (labels ((iter (lst res)
+	     (if (null lst)
+		 (reverse res)
+		 (iter (cdr lst)
+		       (cons (square (car lst))
+			    res)))))
+    (iter items '())))
+
+;;Louis第一个程序会倒过来是因为cons 参数的顺序问题
+;;第二个还是不行是因为表的结尾标识符没有即cons的最后一个参数要是nil结尾标识符。
+
+;;;;2.23
+
+(defun for-each (f lst)
+  (if (null lst)
+      nil
+      (let ((x (car lst)))
+	(funcall f x)
+	(for-each f (cdr lst)))))
+
+;;;;2.24
+;;;(1 (2 (3 4)))
+
+;;;;2.25
+
+(car (cdr (car (cdr (cdr '(1 3 (5 7) 9))))))
+
+(car (car '((7))))
+
+(car (cdr (car (cdr (car (cdr (car (cdr (car (cdr (car (cdr '(1 (2 (3 (4 (5 (6 7))))))))))))))))))
+
+;;;;2.26
+
+;;(1 2 3 4 5 6)
+;;((1 2 3) 4 5 6)
+;;((1 2 3) (4 5 6))
+
+;;;;2.27
+
+;;正常版本
+(defun deep-reverse (lst)
+  (cond ((null lst) nil)
+	((not (consp (car lst)))
+	 (append (deep-reverse (cdr lst))
+		 (cons (car lst) nil)))
+	(t (append (deep-reverse (cdr lst))
+		   (list (deep-reverse (car lst)))))))
+
+;;文艺版本
+(defun deep-reverse (lst)
+  (if (consp lst)
+      (append (deep-reverse (cdr lst))
+	      (list (deep-reverse (car lst))))
+      lst))
+
+;;;;2.28
+
+(defun fringe (lst)
+  (cond ((null lst) nil)
+	((not (consp (car lst)))
+	 (cons (car lst) (fringe (cdr lst))))
+	(t (append (fringe (car lst))
+		   (fringe (cdr lst))))))
+
+;;;;2.29
+
+(defun make-mobile (l r)
+  (list l r))
+
+(defun make-branch (l s)
+  (list l s))
+
+(defun left-branch (m)
+  (car m))
+
+(defun right-branch (m)
+  (car (cdr m)))
+
+(defun branch-length (b)
+  (car b))
+
+(defun branch-structure (b)
+  (car (cdr  b)))
+
+(defun total-weight (m)
+  (cond ((null m) 0)
+	((not (consp (branch-structure m)))
+	 (branch-structure m))
+	(t (+ (total-weight (left-branch m))
+	      (total-weight (right-branch m))))))
