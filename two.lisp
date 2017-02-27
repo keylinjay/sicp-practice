@@ -504,6 +504,8 @@
 
 ;;;;2.29
 
+;;;a
+
 (defun make-mobile (l r)
   (list l r))
 
@@ -522,9 +524,161 @@
 (defun branch-structure (b)
   (car (cdr  b)))
 
+;;;b
+
 (defun total-weight (m)
-  (cond ((null m) 0)
-	((not (consp (branch-structure m)))
-	 (branch-structure m))
-	(t (+ (total-weight (left-branch m))
-	      (total-weight (right-branch m))))))
+  (labels ((branch-weight (b)
+	     (let ((s (branch-structure b)))
+	       (cond ((not (consp s)) s)
+		     (t (total-weight s))))))
+    (let ((lb (left-branch m))
+	  (rb (right-branch m)))
+      (+ (branch-weight lb)
+	 (branch-weight rb)))))
+
+
+;;;c
+
+(defun mobile-balance (m)
+  (labels ((moment-of-force (b)
+	     (let ((l (branch-length b))
+		   (s (branch-structure b)))
+	       (cond ((not (consp s)) (* l s))
+		     (t (* l (total-weight s))))))
+	   (branch-balance (b)
+	     (cond ((not (consp (branch-structure b))) t)
+		   (t (mobile-balance (branch-structure b))))))
+    (let ((lb (left-branch m))
+	  (rb (right-branch m)))
+      (and (= (moment-of-force lb)
+	      (moment-of-force rb))
+	   (branch-balance lb)
+	   (branch-balance rb)))))
+
+
+;;;d
+
+(defun make-mobile (l r)
+  (cons l r))
+
+(defun make-branch (l s)
+  (cons l s))
+
+(defun left-branch (m)
+  (car m))
+
+(defun right-branch (m)
+  (cdr m))
+
+(defun branch-length (b)
+  (car b))
+
+(defun branch-structure (b)
+  (cdr b))
+
+
+;;;;2.30
+
+(defun square-tree (tree)
+  (cond ((null tree) nil)
+	((not (consp tree)) (square tree))
+	(t (cons (square-tree (car tree))
+		 (square-tree (cdr tree))))))
+
+(defun square-tree (tree)
+  (mapcar #'(lambda (x)
+	   (if (consp x)
+	       (square-tree x)
+	       (square x)))
+       tree))
+
+;;;;2.31
+
+(defun tree-map (f tree)
+  (mapcar #'(lambda (x)
+	   (if (consp x)
+	       (tree-map f x)
+	       (funcall f x)))
+       tree))
+
+;;;;2.32
+
+(defun subsets (s)
+  (if (null s)
+      (list nil)
+      (let ((rest (subsets (cdr s))))
+	(append rest (mapcar #'(lambda (x)
+				 (cons (car s) x))
+			     rest)))))
+
+;;;;序列作为一种约定的界面
+
+(defun fib (n)
+  (cond ((= n 0) 0)
+	((= n 1) 1)
+	(t (+ (fib (- n 1))
+	      (fib (- n 2))))))
+
+(defun fib (n)
+  (labels ((next (res nex k)
+	     (if (> k n)
+		 res
+		 (next nex (+ res nex) (+ k 1)))))
+    (next 0 1 0)))
+
+
+(defun sum-odd-squares (tree)
+  (cond ((null tree) 0)
+	((not (consp tree))
+	 (if (oddp tree) tree 0))
+	(t (+ (sum-odd-squares (car tree))
+	      (sum-odd-squares (cdr tree))))))
+
+(defun even-fibs (n)
+  (labels ((next (k)
+	     (if (> k n)
+		 nil
+		 (let ((f (fib k)))
+		   (if (evenp f)
+		       (cons f (next (+ k 1)))
+		       (next (+ k 1)))))))
+    (next 0)))
+
+(defun filter (fpredicate sequence)
+  (cond ((null sequence) nil)
+	((funcall fpredicate (car sequence))
+	 (cons (car sequence) (filter fpredicate (cdr sequence))))
+	(t (filter fpredicate (cdr sequence)))))
+
+(defun accumulate (fop initial sequence)
+  (if (null sequence)
+      initial
+      (funcall fop
+	       (car sequence)
+	       (accumulate fop initial (cdr sequence)))))
+
+;;;;2.33
+
+(defun my-map (p sequence)
+  (accumulate #'(lambda (x y)
+		  (cons (funcall p x) y))
+	      nil
+	      sequence))
+				 
+(defun my-append (seq1 seq2)
+  (accumulate #'cos seq2 seq1))
+
+(defun my-length (sequence)
+  (accumulate #'(lambda (x y)
+		  (+ 1 y))
+	      0 
+	      sequence))
+
+;;;;2.34
+
+(defun horner-eval (x coefficient-sequence)
+  (accumulate #'(lambda (this-coeff higher-terms)
+		  (+ this-coeff
+		     (* x higher-terms)))
+	      0
+	      coefficient-sequence))
