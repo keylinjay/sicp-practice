@@ -682,3 +682,106 @@
 		     (* x higher-terms)))
 	      0
 	      coefficient-sequence))
+;;;;2.35
+
+(defun count-leaves (tree)
+  (accumulate #'+
+	      0
+	      (mapcar #'(lambda (x)
+			  (if (consp x)
+			      (count-leaves x)
+			      1))
+		      tree)))
+
+;;;;2.36
+
+(defun accumulate-n (fop init seqs)
+  (if (null (car seqs))
+      nil
+      (cons (accumulate fop init (mapcar #'(lambda (x) (car x)) seqs))
+	    (accumulate-n fop init (mapcar #'(lambda (x) (cdr x)) seqs)))))
+
+;;;;2.37
+
+(defun dot-product (v w)
+  (accumulate #'+ 0 (mapcar #'* v w)))
+
+(defun matrix-*-vector (m v)
+  (mapcar #'(lambda (x)
+	      (dot-product v x))
+	  m))
+
+(defun transpose (mat)
+  (accumulate-n #'(lambda (x y)
+		    (cons x y))
+		nil
+		mat))
+
+(defun matrix-*-matrix (m n)
+  (let ((cols (transpose n)))
+    (mapcar #'(lambda (x)
+	     (matrix-*-vector cols x))
+	 m)))
+	
+;;;;2.38
+
+(defun fold-left (fop initial sequence)
+  (labels ((iter (result rest)
+	     (if (null rest)
+		 result
+		 (iter (funcall fop result (car rest))
+		       (cdr rest)))))
+    (iter initial sequence)))
+
+;;需要满足参数交换不影响结果
+;;;;2.39
+
+(defun fold-right (fop initial sequence)
+  (if (null sequence)
+      initial
+      (funcall fop
+	       (car sequence)
+	       (fold-right fop initial sequence))))
+
+(defun fold-left (fop initial sequence)
+  (labels ((iter (result rest)
+	     (if (null rest)
+		 result
+		 (iter (funcall fop
+				result
+				(car rest))
+		       (cdr rest)))))
+    (iter initial sequence)))
+
+
+(defun my-reverse (sequence)
+  (fold-right #'(lambda (x y) (append y (list x)))
+	      nil
+	      sequence))
+
+(defun my-reverse (sequence)
+  (fold-left #'(lambda (x y) (cons y x))
+	     nil
+	     sequence))
+
+
+;;;;嵌套映射
+
+(defun enumerate-iterval (s e)
+  (if (> s e)
+      nil
+      (cons s (enumerate-iterval (+ s 1) e))))
+
+(defun flatmap (proc seq)
+  (accumulate #'append nil (mapcar proc seq)))
+
+(defun prime-sump (pair)
+  (primep (+ (car pair) (cadr pair))))
+
+(defun primep (n)
+  (labels ((prime-test (k)
+	     (cond ((= k n) t)
+		   ((> (square k) n) nil)
+		   ((= (mod n k) 0) nil)
+		   (t (prime-test (+ k 1))))))
+    (prime-test 2)))
