@@ -780,8 +780,22 @@
 
 (defun primep (n)
   (labels ((prime-test (k)
-	     (cond ((= k n) t)
-		   ((> (square k) n) nil)
+	     (cond ((> (square k) n) t)
 		   ((= (mod n k) 0) nil)
 		   (t (prime-test (+ k 1))))))
     (prime-test 2)))
+
+(defun make-pair-sum (pair)
+  (list (car pair)
+	(cadr pair)
+	(+ (car pair)
+	   (cadr pair))))
+
+(defun prime-sum-pairs (n)
+  (mapcar #'make-pair-sum
+       (filter #'prime-sump
+	       (flatmap #'(lambda (i)
+			    (mapcar #'(lambda (j)
+				     (list i j))
+				 (enumerate-iterval 1 (- i 1))))
+			(enumerate-iterval 1 n)))))
