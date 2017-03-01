@@ -799,3 +799,75 @@
 				     (list i j))
 				 (enumerate-iterval 1 (- i 1))))
 			(enumerate-iterval 1 n)))))
+
+;;;;2.40
+
+(defun unique-pairs (n)
+  (flatmap #'(lambda (i)
+	       (mapcar #'(lambda (j) (list i j))
+		       (enumerate-iterval 1 (- i 1))))
+	   (enumerate-iterval 1 n)))
+
+(defun prime-sum-pairs (n)
+  (mapcar #'make-pair-sum
+	  (filter #'prime-sump
+		  (unique-pairs n))))
+	       
+
+;;;;2.41
+
+(defun equal-s-sum (n s)
+  (labels ((unique-pairs (n)
+	     (flatmap #'(lambda (i)
+			  (flatmap #'(lambda (j)
+				       (mapcar #'(lambda (k) (list i j k))
+					       (enumerate-iterval 1 (- j 1))))
+				   (enumerate-iterval 1 (- i 1))))
+		      (enumerate-iterval 1 n)))
+	   (equal-sp (pair)
+	     (= s (accumulate #'+ 0 pair))))
+    (filter #'equal-sp
+	    (unique-pairs n))))
+					       
+;;;;2.42
+
+(defun queens (board-size)
+  (labels ((queen-cols (k)
+	     (if (= k 0)
+		 (list '())
+		 (filter
+		  #'(lambda (positions) (safe? k positions))
+		  (flatmap
+		   #'(lambda (rest-of-queens)
+		       (mapcar #'(lambda (new-row)
+				   (adjoin-position new-row k rest-of-queens))
+			       (enumerate-iterval 1 board-size)))
+		   (queen-cols (- k 1)))))))
+    (queen-cols board-size)))
+
+(defun adjoin-position (row col seq)
+  (cons (list col row)
+	seq))
+
+(defun safe? (k positions)
+  (labels ((get-row ()
+	     (cadar (filter #'(lambda (p) (= (car p) k))
+			    positions)))
+	   (test (test-row seq)
+	     (let ((col (caar seq))
+		   (row (cadar seq)))
+	       (cond ((null seq) t)
+		     ((= test-row row) nil)
+		     ((= (abs (- test-row row))
+			 (abs (- k col))) 
+		      nil)
+		     (t (test test-row (cdr seq))))))
+	   (get-positions ()
+	     (filter #'(lambda (p)
+			 (< (car p) k))
+		     positions)))
+
+    ;(format t "~%~A~%" (get-row))
+    ;(format t "~%~A~%" (get-positions))
+    (test (get-row)
+	  (get-positions))))
