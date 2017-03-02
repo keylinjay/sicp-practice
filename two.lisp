@@ -871,3 +871,32 @@
     ;(format t "~%~A~%" (get-positions))
     (test (get-row)
 	  (get-positions))))
+
+
+;;;;2.43
+
+;;;对于map的每个元素，都对应一次时间为T的递归操作。所以时间按大约为T*T的操作。
+
+
+;;;;2.44
+
+(defun up-split (painter n)
+  (if (= n 0)
+      painter
+      (let ((smaller (up-split painter (- n 1))))
+	(below painter (beside smaller smaller)))))
+
+;;;;2.45
+
+(defun split (combine smaller-combine)
+  (labels ((split-n (painter n)
+	     (if (= n 0)
+		 painter
+		 (let ((smallter (split-n painter (- n 1))))
+		   (funcall combine
+			    painter
+			    (funcall smaller-combine
+				     smaller
+				     smaller))))))
+    #'split-n))
+      
