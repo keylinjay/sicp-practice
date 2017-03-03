@@ -900,3 +900,229 @@
 				     smaller))))))
     #'split-n))
       
+
+;;;;2.46
+
+(defun make-vect (x y)
+  (cons x y))
+(defun xcor-vect (v)
+  (car v))
+(defun ycor-vect (v)
+  (cdr v))
+(defun add-vect (v m)
+  (let ((x1 (xcor-vect v))
+	(y1 (ycor-vect v))
+	(x2 (xcor-vect m))
+	(y2 (ycor-vect m)))
+    (make-vect (+ x1 x2)
+	       (+ y1 y2))))
+
+(defun sub-vect (v m)
+  (let ((x1 (xcor-vect v))
+	(y1 (ycor-vect v))
+	(x2 (xcor-vect m))
+	(y2 (ycor-vect m)))
+    (make-vect (- x1 x2)
+	       (- y1 y2))))
+
+(defun scale-vect (v s)
+  (let ((x (xcor-vect v))
+	(y (xcor-vect v)))
+    (make-vect (* s x)
+	       (* s y))))
+
+
+
+(defun frame-coord-map (frame)
+  #'(lambda (v)
+      (add-vect (origin-frame frame)
+		(add-vect (scale-vect (xcor-vect v)
+				      (edge1-frame frame))
+			  (scale-vect (ycor-vect v)
+				      (edge2-frame frame))))))
+
+;;;;2.47
+
+(defun make-frame (origin edge1 edge2)
+  (list origin edge1 edge2))
+
+(defun origin-frame (frame)
+  (car frame))
+
+(defun edge1-frame (frame)
+  (car (cdr frame)))
+
+(defun edge2-frame (frame)
+  (car (cdr (cdr frame))))
+
+(defun make-frame (origin edge1 edge2)
+  (cons origin (cons edge1 edge2)))
+
+(defun origin-frame (frame)
+  (car frame))
+
+(defun edge1-frame (frame)
+  (car (cdr frame)))
+
+(defun edge2-frame (frame)
+  (cdr (cdr frame)))
+
+(defun segments->painter (segment-list)
+  #'(lambda (frame)
+      (for-each 
+       #'(lambda (segment)
+	   (draw-line
+	    (funcall (frame-coord-map frame)
+		     (start-segment segment))
+	    (funcall (frame-coord-map frame)
+		     (end-segment segment))))
+       segment-list)))
+
+;;;;2.48
+
+(defun make-segment (v1 v2)
+  (cons v1 v2))
+(defun start-segment (segment)
+  (car segment))
+(defun end-segment (segment)
+  (cdr segment))
+
+;;;;2.49
+
+;;;a
+(defun border->painter ()
+  (let ((v1 (make-vect 0 0))
+	(v2 (make-vect 1 0))
+	(v3 (make-vect 1 1))
+	(v4 (make-vect 0 1)))
+    (let ((s1 (make-segment v1 v2))
+	  (s2 (make-segment v2 v3))
+	  (s3 (make-segment v3 v4))
+	  (s4 (make-segment v4 v1)))
+      (segments->painter (list s1 s2 s3 s4)))))
+
+;;;b
+(defun corner->painter ()
+  (let ((v1 (make-vect 0 0))
+	(v2 (make-vect 1 0))
+	(v3 (make-vect 1 1))
+	(v4 (make-vect 0 1)))
+    (let ((s1 (make-segment v1 v3))
+	  (s2 (make-segment v2 v4)))
+      (segments->painter (list s1 s2)))))
+
+;;;c
+(defun rhombus->painter ()
+  (let ((v1 (make-vect 0.5 0))
+	(v2 (make-vect 1 0.5))
+	(v3 (make-vect 0.5 1))
+	(v4 (make-vect 0 0.5)))
+    (let ((s1 (make-segment v1 v2))
+	  (s2 (make-segment v2 v3))
+	  (s3 (make-segment v3 v4))
+	  (s4 (make-segment v4 v1)))
+      (segments->painter (list s1 s2 s3 s4)))))
+
+;;;d
+
+
+;;;;2.50
+
+(defun transform-painter (painter origin corner1 corner2)
+  #'(lambda (frame)
+      (let ((m (frame-coord-map frame)))
+	(let ((new-origin (funcall m origin)))
+	  (funcall painter
+		   (make-frame new-origin
+			       (sub-vect (funcall m corner1) new-origin)
+			       (sub-vect (funcall m corner2) new-origin)))))))
+
+(defun flip-vert (painter)
+  (transform-painter painter
+		     (make-vect 0.0 1.0)
+		     (make-vect 1.0 1.0)
+		     (make-vect 0.0 0.0)))
+
+(defun shrink-to-upper-right (painter)
+  (transform-painter painter
+		     (make-vect 0.5 0.5)
+		     (make-vect 1.0 0.5)
+		     (make-vect 0.5 1.0)))
+(defun rotate90 (painter)
+  (transform-painter painter
+		     (make-vect 1.0 0.0)
+		     (make-vect 1.0 1.0)
+		     (make-vect 0.0 0.0)))
+(defun squash-inwards (painter)
+  (transform-painter painter
+		     (make-vect 0.0 0.0)
+		     (make-vect 0.65 0.35)
+		     (make-vect 0.35 0.65)))
+(defun beside (painter1 painter2)
+  (let ((split-point (make-vect 0.5 0)))
+    (let ((paint-left
+	   (transform-painter painter1 
+			      (make-vect 0.0 0.0)
+			      split-point
+			      (make-vect 0.0 1.0)))
+	  (paint-right
+	   (transform-painter painter2
+			      split-point
+			      (make-vect 1.0 0)
+			      (make-vect 0.5 1.0))))
+      #'(lambda (frame)
+	  (funcall paint-left frame)
+	  (funcall paint-right frame)))))
+
+(defun flip-horiz (painter)
+  (transform-painter painter
+		     (make-vect 1.0 0.0)
+		     (make-vect 0.0 0.0)
+		     (make-vect 1.0 1.0)))
+
+(defun rotate180 (painter)
+  (transform-painter painter
+		     (make-vect 1.0 1.0)
+		     (make-vect 0.0 1.0)
+		     (make-vect 1.0 0.0)))
+(defun rotate270 (painter)
+  (transform-painter painter
+		     (make-vect 0.0 1.0)
+		     (make-vect 0.0 0.0)
+		     (make-vect 1.0 1.0)))
+;;;;2.51
+(defun below (painter1 painter2)
+  (let ((split-point (make-vect 0.0 0.5)))
+    (let ((paint-upper 
+	   (transform-painter painter2
+			      split-point
+			      (make-vect 1.0 0.5)
+			      (make-vect 0.0 1.0)))
+	  (paint-down 
+	   (transform-painter painter1
+			      (make-vect 0.0 0.0)
+			      (make-vect 1.0 0.0)
+			      split-point)))
+      #'(lambda (frame)
+	  (funcall paint-upper frame)
+	  (funcall paint-down frame)))))
+(defun below (painter1 painter2)
+  (rotate270
+   (beside (rotate90 painter2)
+	   (rotate90 painter1))))
+
+
+;;;;2.52
+;;;a
+
+;;;b
+(defun corner-split (painter n)
+  (if (= n 0)
+      painter
+      (blow (beside painter (right-split painter (- n 1)))
+	    (beside (up-split painter (- n 1)) (corner-split painter (- n 1))))))
+
+;;;c
+
+
+
