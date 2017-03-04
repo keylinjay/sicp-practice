@@ -1126,3 +1126,139 @@
 
 
 
+;;;;2.53
+
+(defun memq (item lst)
+  (cond ((null lst) nil)
+	((eq item (car lst)) lst)
+	(t (memq item (cdr lst)))))
+
+;(a b c)
+;((george))
+;((y1 y2))
+;(y1 y2)
+;nil
+;nil
+;(red shoes blue socks)
+
+;;;;2.54
+
+(defun equal? (lst1 lst2)
+  (cond ((and (not (consp lst1))
+	      (not (consp lst2))
+	      (eq lst1 lst2))
+	 t)
+	((and (consp lst1)
+	      (consp lst2)
+	      (equal? (car lst1) (car lst2))
+	      (equal? (cdr lst1) (cdr lst2)))
+	 t)
+	(t nil)))
+
+;;;;2.55
+
+;;等价于(car '(quote (abracadabra))),返回quote
+
+
+;;;;符号求导
+
+(defun deriv (exp var)
+  (cond ((number? exp) 0)
+	((variable? exp)
+	 (if (same-variable? exp var) 1 0))
+	((sum? exp)
+	 (make-sum (deriv (addend exp) var)
+		   (deriv (augend exp) var)))
+	((product? exp)
+	 (make-sum
+	  (make-product (multiplier exp)
+			(deriv (multiplicand exp) var))
+	  (make-product (multiplicand exp)
+			(deriv (multiplier exp) var))))
+	(t (princ "unkown expression type -- DERIV"))))
+(defun number? (n)
+  (numberp n))
+(defun variable? (x)
+  (symbolp x))
+(defun same-variable? (v1 v2)
+  (and (variable? v1)
+       (variable? v2)
+       (eq v1 v2)))
+(defun sum? (x)
+  (and (consp x)
+       (eq (car x) '+)))
+(defun addend (x)
+  (cadr x))
+(defun augend (x)
+  (caddr x))
+(defun make-sum (x y)
+  (list '+ x y))
+(defun product? (x)
+  (and (consp x)
+       (eq (car x) '*)))
+(defun multiplier (p)
+  (cadr p))
+(defun multiplicand (p)
+  (caddr p))
+(defun make-product (x y)
+  (list '* x y))
+
+(defun make-sum (x y)
+  (cond ((=number? x 0) y)
+	((=number? y 0) x)
+	((and (number? x) (number? y))
+	 
+	 (+ x y))
+	(t (list '+ x y))))
+
+(defun =number? (v n)
+  (and (number? v) (= v n))) 
+
+(defun make-product (x y)
+  (cond ((or (=number? x 0) (=number? y 0)) 0)
+	((=number? x 1) y)
+	((=number? y 1) x)
+	((and (number? x) (number? y)) (* x y))
+	(t (list '* x y))))
+
+;;;;2.56
+(defun deriv (exp var)
+  (cond ((number? exp) 0)
+	((variable? exp)
+	 (if (same-variable? exp var) 1 0))
+	((sum? exp)
+	 (make-sum (deriv (addend exp) var)
+		   (deriv (augend exp) var)))
+	((product? exp)
+	 (make-sum
+	  (make-product (multiplier exp)
+			(deriv (multiplicand exp) var))
+	  (make-product (multiplicand exp)
+			(deriv (multiplier exp) var))))
+	((exponentiation? exp)
+	 (make-product 
+	  (make-product (exponent exp)
+			(make-exponentiation (base exp) (- (exponent exp) 1)))
+	  (deriv (base exp) var)))
+	(t "do not support or error")))
+
+(defun exponentiation? (x)
+  (and (consp x) (eq (car x) '**)))
+(defun base (e)
+  (cadr e))
+(defun exponent (e)
+  (caddr e))
+(defun make-exponentiation (b e)
+  (cond ((=number? e 0) 1)
+	((=number? e 1) b)
+	(t (list '** b e))))
+
+;;;;2.57
+
+(defun make-sum (&rest lst)
+  (cond ((null (cdr lst)) (car lst))
+	(t (list '+ (car lst) (apply #'make-sum (cdr lst))))))
+
+(defun make-product (&rest lst)
+  (cond ((null (cdr lst)) (car lst))
+	(t (list '* (car lst) (apply #'make-product (cdr lst))))))
