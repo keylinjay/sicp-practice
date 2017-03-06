@@ -1128,10 +1128,10 @@
 
 ;;;;2.53
 
-(defun memq (item lst)
+(defun my-memq (item lst)
   (cond ((null lst) nil)
 	((eq item (car lst)) lst)
-	(t (memq item (cdr lst)))))
+	(t (my-memq item (cdr lst)))))
 
 ;(a b c)
 ;((george))
@@ -1255,10 +1255,86 @@
 
 ;;;;2.57
 
+(defun my-memq (item lst)
+  (cond ((null lst) nil)
+	((eq item (car lst)) lst)
+	(t (my-memq item (cdr lst)))))
+(defun my-remove (item lst)
+  (cond ((null lst) nil)
+	((eq item (car lst)) (my-remove item (cdr lst)))
+	(t (cons (car lst) (my-remove item (cdr lst))))))
+
 (defun make-sum (&rest lst)
-  (cond ((null (cdr lst)) (car lst))
-	(t (list '+ (car lst) (apply #'make-sum (cdr lst))))))
+  (let ((new-lst (my-remove 0 lst)))
+    (cond ((null new-lst) 0)
+	  ((null (cdr new-lst)) (car new-lst))
+	  
+	  (t (cons '+ new-lst)))))
 
 (defun make-product (&rest lst)
-  (cond ((null (cdr lst)) (car lst))
-	(t (list '* (car lst) (apply #'make-product (cdr lst))))))
+  (let ((new-lst (my-remove 1 lst)))
+    (cond ((null new-lst) 1)
+	  ((my-memq 0 new-lst) 0)
+	  ((null (cdr new-lst)) (car new-lst))
+	  (t (cons '* new-lst)))))
+
+(defun addend (s)
+  (cadr s))
+(defun augend (s)
+  (if (null (cdddr s))
+      (caddr s)
+      (apply #'make-sum (cddr s))))
+
+(defun multiplier (m)
+  (cadr m))
+(defun multiplicand (m)
+  (if (null (cdddr m))
+      (caddr m)
+      (apply #'make-product (cddr m))))
+
+
+
+;;;;2.58
+
+(defun deriv (exp var)
+  (cond ((number? exp) 0)
+	((variable? exp)
+	 (if (same-variable? exp var) 1 0))
+	((sum? exp)
+	 (make-sum (deriv (addend exp) var)
+		   (deriv (augend exp) var)))
+	((product? exp)
+	 (make-sum
+	  (make-product (multiplier exp)
+			(deriv (multiplicand exp) var))
+	  (make-product (multiplicand exp)
+			(deriv (multiplier exp) var))))
+	(t (format t "not surpport this exp"))))
+
+(defun number? (n)
+  (numberp n))
+(defun variable? (n)
+  (symbolp n))
+(defun same-variable? (v1 v2)
+  (and (variable? v1)
+       (variable? v2)
+       (eq v1 v2)))
+(defun sum? (exp)
+  (and (consp exp)
+       (eq (cadr exp) '+)))
+(defun product? (exp)
+  (and (consp exp)
+       (eq (cadr exp) '*)))
+(defun make-sum (x y)
+  (list x '+ y))
+(defun make-product (x y)
+  (list x '* y))
+(defun addend (exp)
+  (car exp))
+(defun augend (exp)
+  (caddr exp))
+(defun multiplier (exp)
+  (car exp))
+(defun multiplicand (exp)
+  (caddr exp))
+
