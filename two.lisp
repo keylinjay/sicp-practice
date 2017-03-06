@@ -1296,6 +1296,8 @@
 
 ;;;;2.58
 
+;;;a
+
 (defun deriv (exp var)
   (cond ((number? exp) 0)
 	((variable? exp)
@@ -1338,3 +1340,128 @@
 (defun multiplicand (exp)
   (caddr exp))
 
+;;;b
+
+(defun make-sum (&rest lst)
+  (cond ((null (cdr lst)) lst)
+	(t (cons (car lst) (cons '+ (apply #'make-sum (cdr lst)))))))
+
+(defun make-product (&rest lst)
+  (cond ((null (cdr lst)) lst)
+	(t (cons (car lst) (cons '* (apply #'make-product (cdr lst)))))))
+
+(defun sum? (exp)
+  (my-memq '+ exp))
+(defun product? (exp)
+  (eq (cadr exp) '*))
+
+(defun addend (exp)
+  (labels ((get-addend (exp)
+	     (cond ((eq (car exp) '+) nil)
+		   (t (cons (car exp) (get-addend (cdr exp)))))))
+    (let ((res (get-addend exp)))
+      (if (null (cdr res))
+	  (car res)
+	  res))))
+
+(defun augend (exp)
+  (cond ((null (cdddr exp)) (caddr exp))
+	((eq (car exp) '+)
+	 (cdr exp))
+	(t (augend (cdr exp)))))
+
+(defun multiplier (exp)
+  (car exp))
+(defun multiplicand (exp)
+  (cond ((null (cdddr exp)) (caddr exp))
+	(t (cddr exp))))
+
+
+;;;;2.3.3集合的表示
+(defun element-of-set? (x set)
+  (cond ((null set) nil)
+	((equal x (car set)) t)
+	(t (element-of-set? x (cdr set)))))
+
+(defun adjoin-set (x set)
+  (if (element-of-set? x set)
+      set
+      (cons x set)))
+
+(defun intersection-set (set1 set2)
+  (cond ((or (null set1) (null set2)) '())
+	((element-of-set? (car set1) set2)
+	 (cons (car set1)
+	       (intersection-set (cdr set1) set2)))
+	(t (intersection-set (cdr set1) set2))))
+
+;;;;2.59
+(defun union-set (set1 set2)
+  (cond ((null set1) set2)
+	(t (adjoin (car set1)
+		   (union-set (cdr set1) set2)))))
+
+;;;;2.60
+;;改动下adjoin就行了。
+
+;;;;2.61
+
+(defun adjoin (x set)
+  (cond ((< x (car set)) (cons x set))
+	(t (if (element-of-set? x set)
+	       set
+	       (cons x set)))))
+
+(defun adjoin (x set)
+  (cond ((null set) (list x))
+	((= x (car set)) set)
+	((< x (car set)) (cons x set))
+	(t (cons (car set) (adjoin x (cdr set))))))
+
+;;;;2.62
+
+(defun union-set (set1 set2)
+  (let ((x1 (car set1))
+	(x2 (car set2)))
+    (cond ((null set1) set2)
+	  ((null set2) set1)
+	  ((= x1 x2)
+	   (cons x1 (union-set (cdr set1) (cdr set2))))
+	  ((< x1 x2)
+	   (cons x1 (union-set (cdr set1) set2)))
+	  (t (cons x2 (union-set set1 (cdr set2)))))))
+
+
+
+;;;;tree sets
+(defun entry (tree)
+  (car tree))
+(defun left-branch (tree)
+  (cadr tree))
+(defun right-branch (tree)
+  (caddr tree))
+(defun make-tree (entry left right)
+  (list entry left right))
+
+(defun element-of-set (x set)
+  (cond ((null set) nil)
+	((= x (entry set)) t)
+	((< x (entry set))
+	 (element-of-set x (left-branch set)))
+	((> x (entry set))
+	 (element-of-set x (right-branch set)))))
+
+
+(defun adjoin (x set)
+  (cond ((null set) (make-tree x '() '()))
+	((= x (entry set)) set)
+	((< x (entry set))
+	 (make-tree (entry set)
+		    (adjoin x (left-branch set))
+		    (right-branch set)))
+	((> x (entry set))
+	 (make-tree (entry set)
+		    (left-branch tree)
+		    (adjoin x (right-branch set))))))
+
+;;;;2.63
