@@ -1398,25 +1398,25 @@
 ;;;;2.59
 (defun union-set (set1 set2)
   (cond ((null set1) set2)
-	(t (adjoin (car set1)
+	(t (adjoin-set (car set1)
 		   (union-set (cdr set1) set2)))))
 
 ;;;;2.60
-;;改动下adjoin就行了。
+;;改动下adjoin-set就行了。
 
 ;;;;2.61
 
-(defun adjoin (x set)
+(defun adjoin-set (x set)
   (cond ((< x (car set)) (cons x set))
 	(t (if (element-of-set? x set)
 	       set
 	       (cons x set)))))
 
-(defun adjoin (x set)
+(defun adjoin-set (x set)
   (cond ((null set) (list x))
 	((= x (car set)) set)
 	((< x (car set)) (cons x set))
-	(t (cons (car set) (adjoin x (cdr set))))))
+	(t (cons (car set) (adjoin-set x (cdr set))))))
 
 ;;;;2.62
 
@@ -1452,16 +1452,253 @@
 	 (element-of-set x (right-branch set)))))
 
 
-(defun adjoin (x set)
+(defun adjoin-set (x set)
   (cond ((null set) (make-tree x '() '()))
 	((= x (entry set)) set)
 	((< x (entry set))
 	 (make-tree (entry set)
-		    (adjoin x (left-branch set))
+		    (adjoin-set x (left-branch set))
 		    (right-branch set)))
 	((> x (entry set))
 	 (make-tree (entry set)
 		    (left-branch tree)
-		    (adjoin x (right-branch set))))))
+		    (adjoin-set x (right-branch set))))))
 
 ;;;;2.63
+
+(defun tree->list-1 (tree)
+  (if (null tree)
+      '()
+      (append (tree->list-1 (left-branch tree))
+	      (cons (entry tree)
+		    (tree->list-1 (right-branch tree))))))
+
+(defun tree->list-2 (tree)
+  (labels ((copy-to-list (tree result-list)
+	     (if (null tree)
+		 result-list
+		 (copy-to-list (left-branch tree)
+			       (cons (entry tree)
+				     (copy-to-list (right-branch tree)
+						   result-list))))))
+    (copy-to-list tree '())))
+
+;;; 这两个函数都返回一个从小到大的序列。 使用append的要慢一点。
+
+
+;;;;2.64
+
+(defun quotient (denominator numerator)
+  (let ((rest (mod denominator numerator)))
+    (/ (- denominator rest) numerator)))
+
+(defun list->tree (elements)
+  (car (partial-tree elements (length elements))))
+
+(defun partial-tree (elts n)
+  (if (= n 0)
+      (cons '() elts)
+      (let ((left-size (quotient (- n 1) 2)))
+	(let ((left-result (partial-tree elts left-size)))
+	  (let ((left-tree (car left-result))
+		(non-left-elts (cdr left-result))
+		(right-size (- n (+ left-size 1))))
+	    (let ((this-entry (car non-left-elts))
+		  (right-result (partial-tree (cdr non-left-elts) right-size)))
+	      (let ((right-tree (car right-result))
+		    (remaining-elts (cdr right-result)))
+		(cons (make-tree this-entry left-tree right-tree)
+		      remaining-elts))))))))
+;;;T(n)
+
+;;;;2.65
+
+(defun union-set (set1 set2)
+  (labels ((union-set-list (lst1 lst2)
+	     (let ((x1 (car lst1))
+		   (x2 (car lst2)))
+	       (cond ((null lst1) lst2)
+		     ((null lst2) lst1)
+		     ((= x1 x2)
+		      (adjoin-set x1 (union-set-list (cdr lst1) (cdr lst2))))
+		     ((< x1 x2)
+		      (adjoin-set x1 (union-set-list (cdr lst1) lst2)))
+		     ((> x1 x2)
+		      (adjoin-set x2 (union-set-list lst1 (cdr lst2))))))))
+    (list->tree (union-set-list (tree->list-2 set1)
+				(tree->list-2 set2)))))
+(defun intersection-set (set1 set2)
+  (labels ((intersection-set-list (lst1 lst2)
+	     (let ((x1 (car lst1))
+		   (x2 (car lst2)))
+	       (cond ((or (null lst1) (null lst2))
+		      '())
+		     ((= x1 x2)
+		      (adjoin-set x1 (intersection-set-list (cdr lst1) (cdr lst2))))
+		     ((< x1 x2)
+		      (intersection-set-list (cdr lst1) lst2))
+		     ((> x1 x2)
+		      (intersection-set-list lst1 (cdr lst2)))))))
+    (list->tree (intersection-set-list (tree->list-2 set1)
+				       (tree->list-2 set2)))))
+
+
+;;;;2.66
+
+(defun key (record)
+  (car record))
+
+(defun lookup (given-key set-of-records)
+  (cond ((null set-of-records) nil)
+	((= given-key (key (entry set-of-records)))
+	 (entry set-of-records))
+	((< given-key (key (entry set-of-records)))
+	 (lookup given-key (left-branch set-of-records)))
+	((> given-key (key (entry set-of-records)))
+	 (lookup given-key (right-branch set-of-records)))))
+
+
+
+
+;;;;huffman tree
+
+(defun make-leaf (symbol weight)
+  (list 'leaf symbol weight))
+
+(defun leaf? (object)
+  (eq (car object) 'leaf))
+
+(defun symbol-leaf (object)
+  (cadr object))
+(defun weight-leaf (object)
+  (caddr object))
+
+(defun make-code-tree (left right)
+  (list left
+	right
+	(append (symbols left) (symbols right))
+	(+ (weight left) (weight right))))
+
+(defun left-branch (tree)
+  (car tree))
+(defun right-branch (tree)
+  (cadr tree))
+(defun symbols (tree)
+  (if (leaf? tree)
+      (list (symbol-leaf tree))
+      (caddr tree)))
+(defun weight (tree)
+  (if (leaf? tree)
+      (weight-leaf tree)
+      (cadddr tree)))
+
+(defun decode (bits tree)
+  (labels ((decode-1 (bits current-branch)
+	     (if (null bits)
+		 '()
+		 (let ((next-branch (choose-branch (car bits) current-branch)))
+		   (if (leaf? next-branch)
+		       (cons (symbol-leaf next-branch) (decode-1 (cdr bits) tree))
+		       (decode-1 (cdr bits) next-branch)))))
+	   (choose-branch (bit branch)
+	     (cond ((= 0 bit)
+		    (left-branch branch))
+		   ((= 1 bit)
+		    (right-branch branch))
+		   (t (format t "not this branch")))))
+    (decode-1 bits tree)))
+	     
+(defun adjoin-set (x set)
+  (cond ((null set) (list x))
+	((< (weight x) (weight (car set)))
+	 (cons x set))
+	(t (cons (car set)
+		 (adjoin-set x (cdr set))))))
+
+(defun make-leaf-set (pairs)
+  (if (null pairs)
+      '()
+      (let ((pair (car pairs)))
+	(adjoin-set (make-leaf (car pair)
+			       (cadr pair))
+		    (make-leaf-set (cdr pairs))))))
+
+;;;;2.67
+(let ((sample-tree 
+       (make-code-tree (make-leaf 'a 4)
+		       (make-code-tree 
+			(make-leaf 'b 2)
+			(make-code-tree (make-leaf 'd 1)
+					(make-leaf 'c 1)))))
+      (sample-message '(0 1 1 0 0 1 0 1 0 1 1 1 0)))
+  (format t "~%~A~%" (decode sample-message sample-tree))
+  (format t "~%~A~%" (encode '(a d a b b c a) sample-tree)))
+
+;;;(a d a b b c a)
+
+;;;;2.68
+
+(defun encode (message tree)
+  (labels ((encode-symbol (symbol tree)
+	     (cond ((leaf? tree) nil)
+		   ((my-memq symbol (symbols (left-branch tree)))
+		    (cons 0 (encode-symbol symbol (left-branch tree))))
+		   ((my-memq symbol (symbols (right-branch tree)))
+		    (cons 1 (encode-symbol symbol (right-branch tree))))
+		   (t (format t "not this symbol:~A~%" symbol))))
+	   (my-memq (item lst)
+	     (cond ((null lst) nil)
+		   ((eq item (car lst)) t)
+		   (t (my-memq item (cdr lst))))))
+    (if (null message)
+	'()
+	(append (encode-symbol (car message) tree)
+		(encode (cdr message) tree)))))
+
+;;;;2.69
+
+(defun successive-merge (leafs)
+  (cond ((null leafs) '())
+	((null (cdr leafs)) (car leafs))
+	(t (let ((tree (make-code-tree (car leafs)
+				       (cadr leafs))))
+	     (successive-merge (adjoin-set tree (cddr leafs)))))))
+
+(defun generate-huffman-tree (pairs)
+  (successive-merge (make-leaf-set pairs)))
+
+(let ((tree (generate-huffman-tree '((c 1) (d 1) (b 2) (a 4))))
+      (message '(0 1 1 0 0 1 0 1 0 1 1 1 0))
+      (origin '(a d a b b c a)))
+  (labels ((show (n)
+	     (format t "~%~A~%" n)))
+    (show tree)
+    (show (encode origin tree))
+    (show (decode message tree))))
+			
+
+;;;;2.70
+
+(let ((tree (generate-huffman-tree '((a 2) (na 16) (boom 1) (sha 3) (get 2)
+				     (yip 9) (job 2) (wah 1))))
+      (message '(get a job
+		 sha na na na na na na na na
+		 get a job
+		 sha na na na na na na na na
+		 wah yip yip yip yip yip yip yip yip yip
+		 sha boom)))
+  (labels ((show (n)
+	     (format t "~%~A~%" n)))
+    (show (length (encode message tree)))))
+
+
+;;;84为，定长编码2^8位=256位。
+
+;;;;2.71
+
+;;;n-1,1
+
+;;;;2.72
+
+;;; 1+2+3+...n=T(n^2)
+
