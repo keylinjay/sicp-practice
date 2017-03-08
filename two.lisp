@@ -1631,8 +1631,7 @@
 			(make-code-tree (make-leaf 'd 1)
 					(make-leaf 'c 1)))))
       (sample-message '(0 1 1 0 0 1 0 1 0 1 1 1 0)))
-  (format t "~%~A~%" (decode sample-message sample-tree))
-  (format t "~%~A~%" (encode '(a d a b b c a) sample-tree)))
+  (format t "~%~A~%" (decode sample-message sample-tree)))
 
 ;;;(a d a b b c a)
 
@@ -1702,3 +1701,97 @@
 
 ;;; 1+2+3+...n=T(n^2)
 
+
+
+;;;;2.4抽象数据的多重表示
+
+(defun add-complex (z1 z2)
+  (make-from-real-imag (+ (real-part z1) (real-part z2))
+		       (+ (imag-part z1) (imag-part z2))))
+
+(defun sub-complex (z1 z2)
+  (make-from-real-imag (- (real-part z1) (real-part z2))
+		       (- (imag-part z1) (real-part z2))))
+(defun mul-complex (z1 z2)
+  (make-from-mag-ang (* (magnitude z1) (magnitude z2))
+		     (+ (angle z1) (angle z2))))
+(defun div-complex (z1 z2)
+  (make-from-mag-ang (/ (magnitude z1) (magnitude z2))
+		     (- (angle z1) (angle z2))))
+
+;;;;ben
+(defun real-part (z)
+  (car z))
+(defun imag-part (z)
+  (cdr z))
+(defun make-from-real-imag (x y)
+  (cons x y))
+(defun magnitude (z)
+  (sqrt (+ (square (real-part z))
+	   (square (imag-part z)))))
+(defun angle (z)
+  (atan (imag-part z)
+	(real-part z)))
+(defun make-from-mag-ang (x y)
+  (make-from-mag-ang (* x (cos y))
+		     (* x (sin y))))
+
+;;;;alyssa
+(defun real-part (z)
+  (* (magnitude z) (cos (angle z))))
+(defun imag-part (z)
+  (* (magnitude z) (sin (angle z))))
+(defun magnitude (z)
+  (car z))
+(defun angle (z)
+  (cdr z))
+(defun make-from-mag-ang (r a)
+  (cons r a))
+(defun make-from-real-imag (x y)
+  (cons (sqrt (+ (square x)
+		 (square y)))
+	(atan y x)))
+
+
+;;;;基于类型的分派
+(defun attach-tag (type-tag contents)
+  (cons type-tag contens))
+(defun type-tag (datum)
+  (if (consp datum)
+      (car datum)
+      (error "bad tagged datum -- type-tag")))
+
+(defun contents (datum)
+  (if (consp datum)
+      (cdr datum)
+      (error "bad tagged datum -- contents")))
+(defun rectangular? (z)
+  (eq (type-tag z) 'rectangular))
+(defun polar? (z)
+  (eq (type-tag z) 'polar))
+
+
+;;;;数据导向的程序设计
+(defvar *datum* '())
+(defun make-sym-val (x y)
+  (list x y))
+(defun get-sym (z)
+  (car z))
+(defun get-val (z)
+  (cadr z))
+
+
+
+
+(defun my-put (sym1 sym2 item)
+  (
+		    
+		    
+
+(defun my-get (sym1 sym2)
+  (labels ((lookup (sym lst)
+	     (cond ((null lst) nil)
+		   ((eq sym (caar lst))
+		    (cdar lst))
+		   (t (lookup sym (cdr lst))))))
+    (lookup sym2 (lookup sym1 *datum*))))
