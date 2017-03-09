@@ -1755,7 +1755,7 @@
 
 ;;;;基于类型的分派
 (defun attach-tag (type-tag contents)
-  (cons type-tag contens))
+  (cons type-tag contents))
 (defun type-tag (datum)
   (if (consp datum)
       (car datum)
@@ -1786,7 +1786,7 @@
 (defun my-put (sym1 sym2 item)
   (labels ((lookup (sym lst)
 	     (cond ((null lst) nil)
-		   ((eq sym (get-sym (car lst)))
+		   ((equal sym (get-sym (car lst)))
 		    (get-val (car lst)))
 		   (t (lookup sym (cdr lst)))))
 	   (put (lst)
@@ -1800,7 +1800,7 @@
 					       (mapcar #'(lambda (y)
 							   (if (eq sym2 (get-sym y))
 							       (cons sym2
-								     (cons item (get-val y)))
+								     (cons item nil))
 							       y))
 						       (get-val x)))
 					 x))
@@ -1824,10 +1824,10 @@
 (defun my-get (sym1 sym2)
   (labels ((lookup (sym lst)
 	     (cond ((null lst) nil)
-		   ((eq sym (get-sym (car lst)))
+		   ((equal sym (get-sym (car lst)))
 		    (get-val (car lst)))
 		   (t (lookup sym (cdr lst))))))
-    (lookup sym2 (lookup sym1 *datum*))))
+    (car (lookup sym2 (lookup sym1 *datum*)))))
 
 
 (defun install-rectangular-package ()
@@ -1887,25 +1887,127 @@
 
 (defun apply-generic (op &rest args)
   (let ((type-tags (mapcar #'type-tag args)))
+    ;(format t "~%type-tags is :~A~%" type-tags)
     (let ((proc (my-get op type-tags)))
-      (format t "~A~%" proc)
+      ;(format t "~%proc is :~A~%" proc)
+      ;(format t "~%args is :~A~%" args)
+      ;(format t "~%content is :~A~%" (mapcar #'contents args))
       (if proc
-	  (apply proc (contents args))
+	  (apply proc (mapcar #'contents args))
 	  (error "not these types -- apply-generic")))))
 
 (defun real-part (z)
   (apply-generic 'real-part z))
 (defun imag-part (z) (apply-generic 'imag-part z))
-(defun magnitude (z) (apply-generic 'nagnitude z))
+(defun magnitude (z) (apply-generic 'magnitude z))
 (defun angle (z) (apply-generic 'angle z))
 (defun make-from-real-imag (x y)
   (funcall (my-get 'make-from-real-imag 'rectangular) x y))
 (defun make-from-mag-ang (r a)
   (funcall (my-get 'make-from-mag-ang 'polar) r a))
 
+;;;初始化函数映射表
+(setf *datum* nil)
+(install-rectangular-package)
+(install-polar-package)
+
 (let ((z1 (make-from-real-imag 2 3))
-      (z2 (make-from-mag-ang 5 (tan (/ 3 4)))))
+      
+      (z2 (make-from-mag-ang 5 (atan 3 4))))
   (labels ((show (n)
 	     (format t "~%~A~%" n)))
+    
+    
     (show (add-complex z1 z2))
+    (show (real-part z2))
     (show (mul-complex z1 z2))))
+
+
+;;;;2.73
+
+(defun deriv (exp var)
+  (cond ((number? exp) 0)
+	((variable? exp)
+	 (if (same-variable? exp var)
+	     1
+	     0))
+	(t (funcall (my-get 'deriv (operator exp))
+		    (operands exp)
+		    var))))
+(defun operator (exp)
+  (car exp))
+(defun operands (exp)
+  (cdr exp))
+
+;;;a  
+;number?和variable?接受的参数不是一个确定的符号，而是一种类型。其他都接受确定的符号比如+ * ^等等。便于查找对应的过程。如果接受类型的话，还是要在查找时判断一次类型的。要不查找结果不唯一的。
+
+;;;b c
+
+(defun install-deriv-add-mul-package ()
+  (labels ((make-sum (&rest args)
+	     (let ((new-args (remove 0 args)))
+	       (cond ((null new-args) 0)
+		     ((null (cdr new-args)) (car new-args))
+		     (t (cons '+ new-args)))))
+	   (make-product (v1 v2)
+	     (cond ((or (=number? v1 0) (=number? v2 0)) 0)
+		   ((=number? v1 1) v2)
+		   ((=number? v2 1) v1)
+		   (t (list '* v1 v2))))
+	   (addend (exp)
+	     (car exp))
+	   (augend (exp)
+	     (apply #'make-sum (cdr exp)))
+	   (multiplier (exp)
+	     (car exp))
+	   (multiplicand (exp)
+	     (cadr exp)))
+    (my-put 'deriv '+ #'(lambda (exp var)
+			 ; (format t "~%~A~A~A~A~A~A~%" exp (addend exp) (augend exp) var (deriv (addend exp) var) (deriv (augend exp) var) )
+		  
+			  (make-sum (deriv (addend exp) var)
+				    (deriv (augend exp) var))))
+    (my-put 'deriv '* #'(lambda (exp var)
+			  (make-sum
+			   (make-product (multiplier exp)
+					 (deriv (multiplicand exp) var))
+			   (make-product (multiplicand exp)
+					 (deriv (multiplier exp) var)))))
+
+    
+    'done))
+	     
+;;;初始化函数映射表	     
+(setf *datum* nil)
+(install-deriv-add-mul-package)
+
+;;;c 略去了
+
+;;;d 改下put的symbol顺序就好了。
+
+
+;;;;2.74
+
+
+;;;a
+;分支机构的数据结构要将自己的机构的名字作为键值加入到架构的开头，大概这样：(division-name ((employee-name ((address) (salary)))))
+;各个分支机构有自己的构造函数和选择函数如(get-record)(get-salary)(make-record)等等。通过(put division-name function-name  function)的方式将各自分支结构的选择函数和构造函数放入到二维表中。总部通过(get division-name function0name)的方式得到对应分支结构的操作函数，从而完成类型分派。
+;a
+;(defun get-record (division employee)
+;  (funcall (get divison 'record)
+;	   (get-datum divison) employee))
+;b
+;(defun get-salary (division employee)
+;  (funcall (get division 'salary)
+;	    (get-record division employee)))
+;c
+;(defun find-employee-record (employee division-lst)
+;  (if (null division-lst)
+;      nil
+;      (let ((res (get-record (car division-lst) employee)))
+;	(if res
+;	    res
+;	    (find-employee-record employee (cdr division-lst))))))
+;d
+;先将自己的名字作为键值加入到数据的开头，然后将自己公司的的选择函数和构造函数put到二维函数表中就好了。
