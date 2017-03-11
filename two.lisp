@@ -2031,4 +2031,202 @@
 
 ;;;;2.5.1通用型算术运算 
 
+;;清空二维表
+(setf *datum* nil)
+
+;;定义数据标签的构造函数和选择函数
+(defun attach-tag (type-tag contents)
+  (cons type-tag contents))
+(defun type-tag (datum)
+  (if (consp datum)
+      (car datum)
+      (error "bad tagged datum -- type-tag")))
+(defun contents (datum)
+  (if (consp datum)
+      (cdr datum)
+      (error "bad tagged datum-- contents")))
+
+;;定义通用的函数分派函数，根据参数的数据标签选择对应的函数操作
+(defun apply-generic (op &rest args)
+  (let ((type-tags (mapcar #'type-tag args)))
+    (format t "~%~A~%" type-tags)
+    (let ((proc (my-get op type-tags)))
+      (format t "~%~A  ~A~%" op type-tags)
+      (if proc 
+	  (apply proc 
+		 (mapcar #'contents args))
+	  (error "unkown these types -- apply-generic")))))
+
+;;定义通用的上次操作函数
+(defun add (x y) (apply-generic 'add x y))
+(defun sub (x y) (apply-generic 'sub x y))
+(defun mul (x y) (apply-generic 'mul x y))
+(defun div (x y) (apply-generic 'div x y))
+
+;;定义常规数的算术包
+(defun install-scheme-number-package ()
+  (labels ((tag (x) (attach-tag 'scheme-number x)))
+    (my-put 'add '(scheme-number scheme-number) 
+	    #'(lambda (x y) (tag (+ x y))))
+    (my-put 'sub '(scheme-number scheme-number)
+	    #'(lambda (x y) (tag (- x y))))
+    (my-put 'mul '(scheme-number scheme-number)
+	    #'(lambda (x y) (tag (* x y))))
+    (my-put 'div '(scheme-number scheme-number)
+	    #'(lambda (x y) (tag (/ x y))))
+    (my-put 'make 'scheme-number
+	    #'(lambda (x) (tag x)))
+    'done))
+
+;;安装算术包并定义常规数的构造函数
+(install-scheme-number-package)
+
+(defun make-scheme-number (n)
+  (funcall (my-get 'make 'scheme-number)
+	   n))
+
+
+;;定义有理数算术包	   
+(defun install-rational-package ()
+  (labels ((numer (x) (car x))
+	   (denom (x) (cdr x))
+	   (make-rat (n d)
+	     (let ((g (gcd n d)))
+	       (cons (/ n g) (/ d g))))
+	   (add-rat (x y)
+	     (make-rat (+ (* (numer x) (denom y))
+			  (* (denom x) (numer y)))
+		       (* (denom x) (denom y))))
+	   (sub-rat (x y)
+	     (make-rat (- (* (numer x) (denom y))
+			  (* (denom x) (numer y)))
+		       (* (denom x) (denom y))))
+	   (mul-rat (x y)
+	     (make-rat (* (numer x) (numer y))
+		       (* (denom x) (denom y))))
+	   (div-rat (x y)
+	     (make-rat (* (numer x) (denom y))
+		       (* (denom x) (numer y))))
+	   (tag (x) (attach-tag 'rational x)))
+    (my-put 'add '(rational rational)
+	    #'(lambda (x y) (tag (add-rat x y))))
+    (my-put 'sub '(rational rational)
+	    #'(lambda (x y) (tag (sub-rat x y))))
+    (my-put 'mul '(rational rational)
+	    #'(lambda (x y) (tag (mul-rat x y))))
+    (my-put 'div '(rational rational)
+	    #'(lambda (x y) (tag (div-rat x y))))
+    (my-put 'make 'rational
+	    #'(lambda (n d) (tag (make-rat n d))))
+    (my-put 'numer 'rational #'numer)
+    (my-put 'denom 'rational #'denom)
+    'done))
+
+;;安装有理数算术包并定义有理数构造函数及选择函数
+(install-rational-package)
+(defun make-rational (n d)
+  (funcall (my-get 'make 'rational)
+	   n
+	   d))
+(defun numer (x)
+  (funcall (my-get 'numer 'rational)
+	   x))
+(defun denom (x)
+  (funcall (my-get 'denom 'rational)
+	   x))
+		   
+;;安装复数的两种表示类型的包，并在这之上构造一层通用的复数算术包
+(install-rectangular-package)
+(install-polar-package)
+
+(defun install-complex-package ()
+  (labels ((make-from-real-imag (x y)
+	     (funcall (my-get 'make-from-real-imag 'rectangular)
+		      x
+		      y))
+	   (make-from-mag-ang (r a)
+	     (funcall (my-get 'make-from-mag-ang 'polar)
+		      r
+		      a))
+	   (add-complex (z1 z2)
+	     (make-from-real-imag (+ (real-part z1) (real-part z2))
+				  (+ (imag-part z1) (imag-part z2))))
+	   (sub-complex (z1 z2)
+	     (make-from-real-imag (- (real-part z1) (real-part z2))
+				  (- (imag-part z1) (imag-part z2))))
+	   (mul-complex (z1 z2)
+	     (make-from-mag-ang (* (magnitude z1) (magnitude z2))
+				(+ (angle z1) (angle z2))))
+	   (div-complex (z1 z2)
+	     (make-from-mag-ang (/ (magnitude z1) (magnitude z2))
+				(- (angle z1) (angle z2))))
+	   (tag (z) (attach-tag 'complex z)))
+    (my-put 'add '(complex complex)
+	    #'(lambda (z1 z2) (tag (add-complex z1 z2))))
+    (my-put 'sub '(complex complex)
+	    #'(lambda (z1 z2) (tag (sub-complex z1 z2))))
+    (my-put 'mul '(complex complex)
+	    #'(lambda (z1 z2) (tag (mul-complex z1 z2))))
+    (my-put 'div '(complex complex)
+	    #'(lambda (z1 z2) (tag (div-complex z1 z2))))
+    (my-put 'make-from-real-imag 'complex
+	    #'(lambda (x y) (tag (make-from-real-imag x y))))
+    (my-put 'make-from-mag-ang 'complex
+	    #'(lambda (r a) (tag (make-from-mag-ang r a))))
+    (my-put 'real-part '(complex)#'real-part)
+    (my-put 'imag-part '(complex) #'imag-part)
+    (my-put 'magnitude '(complex) #'magnitude)
+    (my-put 'angle '(complex) #'angle)
+
+    'done))
+
+(install-complex-package)
+;;定义复数的通用构造函数
+(defun make-complex-from-real-imag (x y)
+  (funcall (my-get 'make-from-real-imag 'complex)
+	   x
+	   y))
+(defun make-complex-from-mag-ang (r a)
+  (funcall (my-get 'make-from-mag-ang 'complex)
+	   r
+	   a))
+
+;;;;2.77
+;;原理是这样的。通过加入complex的real-part并指向原来的real-part。这样在调用real-part的时候如果是complex类型就对该类型的contents再次调用real-part。直到遇到rectangular或者polar类型。才调用对应的数据包内部函数。在这里一共调用2次。第一次处理complex第二次处理rectangular或者polar。
+
+;;;;2.78
+
+(defun attach-tag (type-tag contents)
+  (if (numberp contents)
+      contents
+      (cons type-tag contents)))
+
+(defun type-tag (datum)
+  (cond ((numberp datum) 'scheme-number)
+	((consp datum) (car datum))
+	(t (error "bad tags --type-tag"))))
+(defun contents (datum)
+  (cond ((numberp datum) datum)
+	((consp datum) (cdr datum))
+	(t (error "bad tags --contents"))))
+
+;;;;2.79
+
+(defun install-equ?-package ()
+  (my-put 'equ? '(scheme-number scheme-number) #'=)
+  (my-put 'equ? '(rational rational) 
+	  #'(lambda (x y) (and (= (numer x) (numer y))
+			       (= (denom x) (denom y)))))
+  (my-put 'equ? '(complex complex)
+	  #'(lambda (z1 z2)
+	      (and (= (real-part z1) (real-part z2))
+		   (= (imag-part z1) (imag-part z2))))))
+
+(install-equ?-package)
+
+(defun equ? (x y) (apply-generic 'equ? x y))
+
+
+;;;;2.80
+
 
