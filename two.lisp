@@ -2230,3 +2230,86 @@
 ;;;;2.80
 
 
+(defun install-=zero?-package ()
+  (my-put '=zero? '(scheme-number) #'(lambda (x) (= x 0)))
+  (my-put '=zero? '(rational)
+	  #'(lambda (x)
+	      (= (numer x) 0)))
+  (my-put '=zero? '(complex)
+	  #'(lambda (x)
+	      (and (= (real-part x) 0)
+		   (= (imag-part x) 0))))
+  'done)
+
+(install-=zero?-package)
+
+(defun =zero? (x) (apply-generic '=zero? x))
+
+;;;;2.5.2不同类型数据组合
+
+(defun apply-generic (op &rest args)
+  (let ((type-tags (mapcar #'type-tag args)))
+    (let ((proc (my-get op type-tags)))
+      (if proc
+	  (apply proc
+		   (mapcar #'contents args))
+	  (if (= (length args) 2)
+	      (let ((t1 (car type-tags))
+		    (t2 (cadr type-tags))
+		    (a1 (car args))
+		    (a2 (cadr args)))
+		(let ((t1->t2 (my-get t1 t2))
+		      (t2->t1 (my-get t2 t1)))
+		  (cond (t1->t2 (apply-generic op (funcall t1->t2 a1) a2))
+			(t2->t1 (apply-generic op a1 (funcall t2->t1 a2)))
+			(t (error "not methods for these types -- apply-generic ~A ~A" op type-tags)))))
+	      (error "not methods for these types -- apply-generic ~A ~A" op type-tags))))))
+
+
+;;;;2.81
+;;;a
+;;会陷入死循环。在apply-generic做类型转换的过程中。会一直转换到自身。
+
+;;;b
+;;很明显并没有。
+
+;;;c
+(defun apply-generic (op &rest args)
+  (let ((type-tags (mapcar #'type-tag args)))
+    (let ((proc (my-get op type-tags)))
+      (if proc
+	  (apply proc (mapcar #'contents args))
+	  (if (= (length args) 2)
+	      (let ((t1 (car type-tags))
+		    (t2 (cadr type-tags))
+		    (a1 (car args))
+		    (a2 (cadr args)))
+		(if (eq t1 t2)
+		    (error "not methods for these types -- apply-generic ~A" (list op type-tags))
+		    (let ((t1->t2 (my-get t1 t2))
+			  (t2->t1 (my-get t2 t1)))
+		      (cond (t1->t2 (apply-generic op (funcall t1->t2 a1) a2))
+			    (t2->t1 (apply-generic op a1 (funcall t2->t1 a2)))
+			    (t (error "not methods for these types ~A" (list op type-tags)))))))
+	      (error "not methods for these types ~A" (list op type-tags)))))))
+
+
+;;;;2.82
+;;假定存在这种情况：已知，已经定义了scheme-number->complex和rational->complex。但是scheme-number和rational之间的转换并没有定义。那么，当我们操作scheme-number和rational作为参数的时候，apply-generic的内部的转换一定是失败的。但是我们可以把他们都转换到complex的类型去操作。这种情况在这个策略下就是不具有一般性的。
+;;类型塔结构的模型在这里就可以避免这中问题。
+
+;;;;2.83
+
+(defun install-raise-package ()
+  (labels ((scheme-number->rational (x)
+	     (make-rational x 1))
+	   (rational->complex (x)
+	     (make-complex-from-real-imag (/ (numer x) (denom x)) 0)))
+    (my-put 'raise '(scheme-number) #'scheme-number->rational)
+    (my-put 'raise '(rational) #'rational->complex))
+  'done)
+
+(install-raise-package)
+
+(defun raise (x) (apply-generic 'raise x))
+
