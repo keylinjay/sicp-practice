@@ -2313,3 +2313,40 @@
 
 (defun raise (x) (apply-generic 'raise x))
 
+;;;;2.84
+
+(defvar *type-tower* '(scheme-number rational complex))
+
+(defun higher-type (lst)
+  (labels ((lookup (types lst)
+	     (let ((type (car types)))
+	       (let ((new-lst (remove type lst)))
+		 (cond ((null new-lst) type)
+		       ((null types) (error "these type not in type-tower ~A" new-lst))
+		       (t (lookup (cdr types) new-lst)))))))
+    (lookup *type-tower* lst)))
+
+(defun raise-to-type (data type)
+  (let ((low-type (type-tag data))) 
+    (if (eq low-type type)
+	data
+	(raise-to-type (raise data) type))))
+
+(defun my-replace (lst item1 item2)
+  (cond ((null lst) nil)
+	((equal item1 (car lst))
+	 (cons item2 (my-replace (cdr lst) item1 item2)))
+	(t (cons (car lst) (my-replace (cdr lst) item1 item2)))))
+
+(defun apply-generic (op &rest args)
+  (let ((type-tags (mapcar #'type-tag args)))
+    (let ((proc (my-get op type-tags)))
+      (if proc
+	  (apply proc (mapcar #'contents args))
+	  (let ((hig-type (higher-type type-tags)))
+	    (let ((new-type-tags (mapcar #'(lambda (x) hig-type) type-tags)))
+	      (if (my-get op new-type-tags)
+		  (apply #'apply-generic (cons op (mapcar #'(lambda (x)
+							      (raise-to-type x hig-type)) 
+							  args)))
+		  (error "not these type methods --apply-generic"))))))))
