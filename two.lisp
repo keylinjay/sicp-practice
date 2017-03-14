@@ -2118,8 +2118,8 @@
 	    #'(lambda (x y) (tag (div-rat x y))))
     (my-put 'make 'rational
 	    #'(lambda (n d) (tag (make-rat n d))))
-    (my-put 'numer 'rational #'numer)
-    (my-put 'denom 'rational #'denom)
+    (my-put 'numer '(rational) #'numer)
+    (my-put 'denom '(rational) #'denom)
     'done))
 
 ;;安装有理数算术包并定义有理数构造函数及选择函数
@@ -2128,12 +2128,8 @@
   (funcall (my-get 'make 'rational)
 	   n
 	   d))
-(defun numer (x)
-  (funcall (my-get 'numer 'rational)
-	   x))
-(defun denom (x)
-  (funcall (my-get 'denom 'rational)
-	   x))
+(defun numer (x) (apply-generic 'numer (attach-tag 'rational x)))
+(defun denom (x) (apply-generic 'denom (attach-tag 'rational x)))
 		   
 ;;安装复数的两种表示类型的包，并在这之上构造一层通用的复数算术包
 (install-rectangular-package)
@@ -2214,15 +2210,14 @@
 
 (defun install-equ?-package ()
   (my-put 'equ? '(scheme-number scheme-number) #'=)
-  (my-put 'equ? '(rational rational) 
-	  #'(lambda (x y) (and (= (numer x) (numer y))
-			       (= (denom x) (denom y)))))
+  (my-put 'equ? '(rational rational) #'equal)
   (my-put 'equ? '(complex complex)
 	  #'(lambda (z1 z2)
 	      (and (= (real-part z1) (real-part z2))
 		   (= (imag-part z1) (imag-part z2))))))
 
 (install-equ?-package)
+
 
 (defun equ? (x y) (apply-generic 'equ? x y))
 
@@ -2316,13 +2311,38 @@
 ;;;;2.84
 
 (defvar *type-tower* '(scheme-number rational complex))
+(defun update-type-tower (new-tower)
+  (setf *type-tower* new-tower))
+
+(defun add-type-to-tower (type before-type after-type before->type type->after)
+  (labels ((insert (lst)
+	     (cond ((null lst) (error "can't find the position -- add-type-to-tower -insert ~A" (list before-type after-type)))
+		   ((and (eq before-type (car lst))
+			 (eq after-type (cadr lst)))
+		    (cons (car lst) (cons type (cdr lst))))
+		   (t (cons (car lst) (insert (cdr lst)))))))
+	   
+    
+    (cond ((eq after-type 'start)
+	   (update-type-tower (cons type *type-tower*))
+	   (my-put 'raise type type->after))
+	  ((eq before-type 'end)
+	   (update-type-tower (append *type-tower* (list type)))
+	   (my-put 'raise before-type before->type))
+	  (t 
+	   (update-type-tower (insert *type-tower*))
+	   (my-put 'raise before-type before->type)
+	   (my-put 'raise type type->after)))))
+
+
+
 
 (defun higher-type (lst)
   (labels ((lookup (types lst)
 	     (let ((type (car types)))
 	       (let ((new-lst (remove type lst)))
 		 (cond ((null new-lst) type)
-		       ((null types) (error "these type not in type-tower ~A" new-lst))
+		       ((null types) (error "these type not in type-tower--higher-type ~A" new-lst))
 		       (t (lookup (cdr types) new-lst)))))))
     (lookup *type-tower* lst)))
 
@@ -2332,11 +2352,7 @@
 	data
 	(raise-to-type (raise data) type))))
 
-(defun my-replace (lst item1 item2)
-  (cond ((null lst) nil)
-	((equal item1 (car lst))
-	 (cons item2 (my-replace (cdr lst) item1 item2)))
-	(t (cons (car lst) (my-replace (cdr lst) item1 item2)))))
+
 
 (defun apply-generic (op &rest args)
   (let ((type-tags (mapcar #'type-tag args)))
@@ -2349,4 +2365,43 @@
 		  (apply #'apply-generic (cons op (mapcar #'(lambda (x)
 							      (raise-to-type x hig-type)) 
 							  args)))
-		  (error "not these type methods --apply-generic"))))))))
+		  (error "not these type methods --apply-generic ~A" (list op type-tags)))))))))
+
+
+;;;;2.85
+
+
+
+(defun install-project-package ()
+  (my-put 'project '(complex) #'(lambda (x) (make-rational (round (real-part x)) 1)))
+  (my-put 'project '(rational) #'(lambda (x) (make-scheme-number (numer x))))
+  'done)
+
+(install-project-package)
+
+(defun project (data) (apply-generic 'project data))
+
+(defun drop (x)
+  (cond ((eq (type-tag x) (car *type-tower*)) x)
+	((equ? x (raise (project x)))
+	 (drop (project x)))
+	(t x)))
+
+(defun apply-generic (op &rest args)
+  (let ((type-tags (mapcar #'type-tag args)))
+    (let ((proc (my-get op type-tags)))
+      (if proc
+	  (let ((res (apply proc (mapcar #'contents args))))
+	    (if (or (eq op 'raise) (eq op 'project)) 
+		(drop res)
+		res))
+
+	  (let ((hig-type-tag (higher-type type-tags)))
+	    (let ((new-type-tags (mapcar #'(lambda (x) hig-type-tag) type-tags)))
+	      (if (my-get 'op new-type-tags)
+		  (let ((new-args (mapcar #'(lambda (x)
+					      (raise-to-type x hig-type-tag))
+					  args)))
+		    (apply #'apply-generic (cons op new-args)))
+		  (error "not these type methods--apply-generic ~A" (list op type-tags new-type-tags)))))))))
+		  
