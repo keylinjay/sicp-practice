@@ -1,3 +1,4 @@
+
 (defun square (x)
   (* x x))
 ;;;;2.1
@@ -2314,7 +2315,11 @@
 (defun update-type-tower (new-tower)
   (setf *type-tower* new-tower))
 
-(defun add-type-to-tower (type before-type after-type before->type type->after)
+(defun add-type-to-tower (type before-type after-type
+			  before->type
+			  type->after
+			  after->type
+			  type->before)
   (labels ((insert (lst)
 	     (cond ((null lst) (error "can't find the position -- add-type-to-tower -insert ~A" (list before-type after-type)))
 		   ((and (eq before-type (car lst))
@@ -2325,10 +2330,12 @@
     
     (cond ((eq after-type 'start)
 	   (update-type-tower (cons type *type-tower*))
-	   (my-put 'raise type type->after))
+	   (my-put 'raise type type->after)
+	   (my-put 'project after-type after->type))
 	  ((eq before-type 'end)
 	   (update-type-tower (append *type-tower* (list type)))
-	   (my-put 'raise before-type before->type))
+	   (my-put 'raise before-type before->type)
+	   (my-put 'project )
 	  (t 
 	   (update-type-tower (insert *type-tower*))
 	   (my-put 'raise before-type before->type)
@@ -2392,7 +2399,7 @@
     (let ((proc (my-get op type-tags)))
       (if proc
 	  (let ((res (apply proc (mapcar #'contents args))))
-	    (if (or (eq op 'raise) (eq op 'project)) 
+	    (if (or (eq op 'add) (eq op 'sub) (eq op 'mul) (eq op 'div))
 		(drop res)
 		res))
 
@@ -2405,3 +2412,11 @@
 		    (apply #'apply-generic (cons op new-args)))
 		  (error "not these type methods--apply-generic ~A" (list op type-tags new-type-tags)))))))))
 		  
+;;;;2.86
+
+;;更改complex的算术运算函数，将里面的 +-*/换成add,sub,mul,div
+;;在scheme-number和rational中加入对应的sine cosine函数。
+;;这里就不写了，直接改在上面吧。
+
+;;;;2.87
+
