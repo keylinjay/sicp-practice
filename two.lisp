@@ -2311,7 +2311,12 @@
 
 ;;;;2.84
 
-(defvar *type-tower* '(scheme-number rational complex))
+(defvar *type-tower* '())
+(defun first-type-in-tower (tower)
+  (car tower))
+(defun last-type-in-tower (tower)
+  (cond ((null (cdr tower)) (car tower))
+	(t (last-type-in-tower (cdr tower)))))
 (defun update-type-tower (new-tower)
   (setf *type-tower* new-tower))
 
@@ -2327,21 +2332,74 @@
 		    (cons (car lst) (cons type (cdr lst))))
 		   (t (cons (car lst) (insert (cdr lst)))))))
 	   
-    
-    (cond ((eq after-type 'start)
-	   (update-type-tower (cons type *type-tower*))
-	   (my-put 'raise type type->after)
-	   (my-put 'project after-type after->type))
-	  ((eq before-type 'end)
-	   (update-type-tower (append *type-tower* (list type)))
-	   (my-put 'raise before-type before->type)
-	   (my-put 'project )
-	  (t 
-	   (update-type-tower (insert *type-tower*))
-	   (my-put 'raise before-type before->type)
-	   (my-put 'raise type type->after)))))
+    (let ((start-type (first-type-in-tower *type-tower*))
+	  (last-type (last-type-in-tower *type-tower*)))
+      (cond ((eq after-type start-type)
+	     (update-type-tower (cons type *type-tower*))
+	     (my-put 'raise type type->after)
+	     (my-put 'project after-type after->type))
+	    ((eq before-type last-type)
+	     (update-type-tower (append *type-tower* (list type)))
+	     (my-put 'raise before-type before->type)
+	     (my-put 'project type type->before))
+	    (t 
+	     (update-type-tower (insert *type-tower*))
+	     (my-put 'raise before-type before->type)
+	     (my-put 'raise type type->after)
+	     (my-put 'project after-type after->type)
+	     (my-put 'project type type->before))))))
 
+;;;;安装整数算数包
+(defun install-integer-package ()
+  (labels ((tag (x) (attach-tag 'integer x)))
+    (my-put 'add '(integer integer) #'(lambda (x y) (tag (+ (round x) (round y)))))
+    (my-put 'sub '(integer integer) #'(lambda (x y) (tag (- (round x) (round y)))))
+    (my-put 'mul '(integer integer) #'(lambda (x y) (tag (* (round x) (round y)))))
+    (my-put 'div '(integer integer) #'(lambda (x y) (tag (/ (round x) (round y)))))
+    (my-put 'make 'integer #'(lambda (x) (tag (round x))))
+    (my-put 'equ? '(integer integer) #'(lambda (x y) (= (round x) (round y))))
+    (my-put '=zero? '(integer) #'(lambda (x) (= (round x) 0)))
+    (my-put 'sine '(integer) #'(lambda (x) (tag (sin (round x)))))
+    (my-put 'cosine '(integer) #'(lambda (x) (tag (cosine (round x)))))
+    'done))
+(install-integer-package)
+(defun make-integer (x)
+  (funcall (my-get 'make 'integer)
+	   x))
+;;;;安装实数算数包
+(defun install-real-package ()
+  (labels ((tag (x) (attach-tag 'real x)))
+    (my-put 'add '(real real) #'(lambda (x y) (tag (+ x y))))
+    (my-put 'sub '(real real) #'(lambda (x y) (tag (- x y))))
+    (my-put 'mul '(real real) #'(lambda (x y) (tag (* x y))))
+    (my-put 'div '(real real) #'(lambda (x y) (tag (/ x y))))
+    (my-put 'make 'real #'(lambda (x) (tag x)))
+    (my-put 'equ? '(real real) #'(lambda (x y) (= x y)))
+    (my-put '=zero? '(real) #'(lambda (x) (= x 0)))
+    (my-put 'sine '(real) #'(lambda (x) (tag (sin x))))
+    (my-put 'cosine '(real) #'(lambda (x) (tag (cos x))))
+    'done))
+(defun make-real (x)
+  (funcall (my-get 'make 'real)
+	   x))
+(install-real-package)
 
+;;;;安装类型到类型塔
+(update-type-tower nil)
+(add-type-to-tower 'scheme-number
+		   nil
+		   nil
+		   nil
+		   nil
+		   nil
+		   nil)
+(add-type-to-tower 'integer
+		   'scheme-number
+		   nil
+		   #'(lambda (x) (make-integer (round x)))
+		   nil
+		   nil 
+		   #'(lambda (x) x))
 
 
 (defun higher-type (lst)
