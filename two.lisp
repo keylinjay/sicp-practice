@@ -2077,6 +2077,8 @@
 	    #'(lambda (x y) (tag (/ x y))))
     (my-put 'make 'scheme-number
 	    #'(lambda (x) (tag x)))
+    (my-put 'sine '(scheme-number) #'(lambda (x) (tag (sin x))))
+    (my-put 'cosine '(scheme-number) #'(lambda (x) (tag (cos x))))
     'done))
 
 ;;安装算术包并定义常规数的构造函数
@@ -2121,6 +2123,11 @@
 	    #'(lambda (n d) (tag (make-rat n d))))
     (my-put 'numer '(rational) #'numer)
     (my-put 'denom '(rational) #'denom)
+    (my-put 'sine '(rational) #'(lambda (x) (make-scheme-number (sin (/ (numer x) (denom x))))))
+							
+    (my-put 'cosine '(rational) #'(lambda (x) (make-scheme-number (cos (/ (numer x) (denom x))))))
+						
+						
     'done))
 
 ;;安装有理数算术包并定义有理数构造函数及选择函数
@@ -2146,17 +2153,17 @@
 		      r
 		      a))
 	   (add-complex (z1 z2)
-	     (make-from-real-imag (+ (real-part z1) (real-part z2))
-				  (+ (imag-part z1) (imag-part z2))))
+	     (make-from-real-imag (add (real-part z1) (real-part z2))
+				  (add (imag-part z1) (imag-part z2))))
 	   (sub-complex (z1 z2)
-	     (make-from-real-imag (- (real-part z1) (real-part z2))
-				  (- (imag-part z1) (imag-part z2))))
+	     (make-from-real-imag (sub (real-part z1) (real-part z2))
+				  (sub (imag-part z1) (imag-part z2))))
 	   (mul-complex (z1 z2)
-	     (make-from-mag-ang (* (magnitude z1) (magnitude z2))
-				(+ (angle z1) (angle z2))))
+	     (make-from-mag-ang (mul (magnitude z1) (magnitude z2))
+				(mul (angle z1) (angle z2))))
 	   (div-complex (z1 z2)
-	     (make-from-mag-ang (/ (magnitude z1) (magnitude z2))
-				(- (angle z1) (angle z2))))
+	     (make-from-mag-ang (div (magnitude z1) (magnitude z2))
+				(div (angle z1) (angle z2))))
 	   (tag (z) (attach-tag 'complex z)))
     (my-put 'add '(complex complex)
 	    #'(lambda (z1 z2) (tag (add-complex z1 z2))))
@@ -2311,7 +2318,7 @@
 
 ;;;;2.84
 
-(defvar *type-tower* '())
+(defvar *type-tower* '(scheme-number rational complex))
 (defun first-type-in-tower (tower)
   (car tower))
 (defun last-type-in-tower (tower)
@@ -2363,9 +2370,12 @@
     (my-put 'cosine '(integer) #'(lambda (x) (tag (cosine (round x)))))
     'done))
 (install-integer-package)
+
 (defun make-integer (x)
   (funcall (my-get 'make 'integer)
 	   x))
+
+
 ;;;;安装实数算数包
 (defun install-real-package ()
   (labels ((tag (x) (attach-tag 'real x)))
@@ -2384,22 +2394,7 @@
 	   x))
 (install-real-package)
 
-;;;;安装类型到类型塔
-(update-type-tower nil)
-(add-type-to-tower 'scheme-number
-		   nil
-		   nil
-		   nil
-		   nil
-		   nil
-		   nil)
-(add-type-to-tower 'integer
-		   'scheme-number
-		   nil
-		   #'(lambda (x) (make-integer (round x)))
-		   nil
-		   nil 
-		   #'(lambda (x) x))
+
 
 
 (defun higher-type (lst)
@@ -2476,5 +2471,61 @@
 ;;在scheme-number和rational中加入对应的sine cosine函数。
 ;;这里就不写了，直接改在上面吧。
 
-;;;;2.87
 
+(defun sine (x) (apply-generic 'sine x))
+(defun cosine (x) (apply-generic 'cosine x))
+
+;;;当然还需呀重写rectangular和polar复数构造函数里的选择函数并更换其中给你的sin 和 cos
+
+;;;;2.5.3符号代数
+
+
+
+
+;;定义多项式的加法和乘法
+(defun add-poly (p1 p2)
+  (if (same-variable? (variable p1) (variable p2))
+      (make-poly (variable p1)
+		 (add-terms (term-list p1)
+			    (term-list p2)))
+      (error "polys not in same var -- add-poly ~A" (list p1 p2))))
+(defun mul-poly (p1 p2)
+  (if (same-variable? (variable p1) (variable p2))
+      (make-poly (variable p1)
+		 (mul-terms (term-list p1)
+			    (term-list p2)))
+      (error "polys not in same var -- mul-poly ~A" (list p1 p2))))
+
+;;定义多项式的算术安装包
+(defun install-polynomial-package ()
+  ;;internal procedures
+  ;;representation of poly
+  (labels ((make-poly (variable term-list)
+	     (cons variable term-list))
+	   (variable (p) (car p))
+	   (term-list (p) (cdr p))
+	   (variable? (var) (symbolp var))
+	   (same-variable? (v1 v2)
+	     (and (variable? v1)
+		  (variable? v2)
+		  (eq v1 v2)))
+	   (add-poly (p1 p2)
+	     (if (same-variable? (variable p1) (variable p2))
+		 (make-poly (variable p1)
+			    (add-terms (term-list p1)
+				       (term-list p2)))
+		 (error "polys not in same variable -- add-poly ~A" (list p1 p2))))
+	   (mul-poly (p1 p2)
+	     (if (same-variable? (variable p1) (variable p2))
+		 (make-poly (variable p1)
+			    (mul-terms (term-list p1)
+				       (term-list p2)))
+		 (error "poly not in same variable -- mul-poly ~A" (list p1 p2))))
+	   (tag (p) (attach-tag 'polynomial p)))
+    (my-put 'add '(polynomial polynomial)
+	    #'(lambda (p1 p2) (tag (add-poly p1 p2))))
+    (my-put 'mul '(polynomial polynomial)
+	    #'(lambda (p1 p2) (tag (mul-poly p1 p2))))
+    (my-put 'make 'polynomial
+	    #'(lambda (var terms) (tag (make-poly var terms))))
+    'done))
