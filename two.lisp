@@ -2526,6 +2526,70 @@
 	    #'(lambda (p1 p2) (tag (add-poly p1 p2))))
     (my-put 'mul '(polynomial polynomial)
 	    #'(lambda (p1 p2) (tag (mul-poly p1 p2))))
+    ;;2.87 add =zero?
+    (my-put '=zero? '(polynomial) 
+	    #'(lambda (p) (empty-termlist? (term-list p))))
+
     (my-put 'make 'polynomial
 	    #'(lambda (var terms) (tag (make-poly var terms))))
     'done))
+
+;;;定义多项式加法的项表
+
+(defun add-terms (l1 l2)
+  (cond ((empty-termlist? l1) l2)
+	((empty-termlist? l2) l1)
+	(t 
+	 (let ((t1 (first-term l1)) 
+	       (t2 (first-term l2)))
+	   (cond ((> (order t1) (order t2))
+		  (adjoin-term t1 (add-terms (rest-terms l1) l2)))
+		 ((< (order t1) (order t2))
+		  (adjoin-term t2 (add-terms l1 (rest-terms l2))))
+		 (t 
+		  (adjoin-term (make-term (order t1) 
+					  (add (coeff t1) (coeff t2)))
+			       (add-terms (rest-terms l1) (rest-terms l2)))))))))
+
+(defun mul-terms (l1 l2)
+  (if (empty-termlist? l1)
+      (the-empty-termlist)
+      (add-terms (mul-term-by-all-terms (first-term l1) l2)
+		 (mul-terms (rest-terms l1) l2))))
+
+(defun mul-term-by-all-terms (t1 l)
+  (if (empty-termlist? l)
+      (the-empty-termlist)
+      (let ((t2 (first-term l)))
+	(adjoin-term
+	 (make-term (+ (order t1) (order t2))
+		    (mul (coeff t1) (coeff t2)))
+	 (mul-term-by-all-terms t1 (rest-terms l))))))
+
+
+;;;项表的构造函数和选择函数
+
+(defun adjoin-term (term term-list)
+  (cond ((=zero? (coeff term)) 
+	 term-list)
+	((> (coeff term) (coeff (first-term term-list)))
+	 (cons term term-list))
+	(t
+	 (cons (first-term term-list)
+	       (adjoin-term term (rest-terms term-list))))))
+
+(defun the-empty-termlist () '())
+(defun first-term (term-list) (car term-list))
+(defun rest-terms (term-list) (cdr term-list))
+(defun empty-termlist? (term-list) (null term-list))
+(defun make-term (order coeff) (list order coeff))
+(defun order (term) (car term))
+(defun coeff (term) (cadr term))
+
+(defun make-polynomial (var terms)
+  (funcall (my-get 'make 'polynomial)
+	   var
+	   terms))
+
+;;;;2.87
+
