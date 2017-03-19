@@ -2521,9 +2521,20 @@
 			    (mul-terms (term-list p1)
 				       (term-list p2)))
 		 (error "poly not in same variable -- mul-poly ~A" (list p1 p2))))
+	   (sub-poly (p1 p2)
+	     (if (same-variable? (variable p1) (variable p2))
+		 (make-poly (variable p1)
+			    (sub-terms (term-list p1)
+				       (term-list p2)))
+		 (error "poly not in same variable -- mul-poly ~A" (list p1 p2))))
+	   
 	   (tag (p) (attach-tag 'polynomial p)))
     (my-put 'add '(polynomial polynomial)
 	    #'(lambda (p1 p2) (tag (add-poly p1 p2))))
+
+    (my-put 'sub '(polynomial polynomial)
+	    #'(lambda (p1 p2) (tag (sub-poly p1 p2))))
+    
     (my-put 'mul '(polynomial polynomial)
 	    #'(lambda (p1 p2) (tag (mul-poly p1 p2))))
     ;;2.87 add =zero?
@@ -2550,6 +2561,17 @@
 		  (adjoin-term (make-term (order t1) 
 					  (add (coeff t1) (coeff t2)))
 			       (add-terms (rest-terms l1) (rest-terms l2)))))))))
+
+(defun minus-terms (l)
+  (cond ((empty-termlist? l) (the-empty-termlist))
+	(t
+	 (let ((term (first-term l)))
+	   (adjoin-term (make-term (order term)
+				   (sub 0 (coeff term)))
+			(minus-terms (rest-terms l)))))))
+
+(defun sub-terms (l1 l2)
+  (add-terms l1 (minus-terms l2)))
 
 (defun mul-terms (l1 l2)
   (if (empty-termlist? l1)
@@ -2593,3 +2615,6 @@
 
 ;;;;2.87
 
+;;添加到polynomial的算数包中。
+
+;;;;2.88
