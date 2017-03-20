@@ -2618,3 +2618,9 @@
 ;;添加到polynomial的算数包中。
 
 ;;;;2.88
+
+;;添加到polynomial的算术包中。
+
+;;;;2.89
+(defun add-dense-termlist (term term-list)
+  (let ((
