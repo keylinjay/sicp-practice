@@ -2622,5 +2622,46 @@
 ;;添加到polynomial的算术包中。
 
 ;;;;2.89
-(defun add-dense-termlist (term term-list)
-  (let ((
+(defun adjoin-term-dense (term term-list)
+  (cond ((=zero? (coeff term)) term-list)
+	((equ? (order term) (- (length term-list) 1)) 
+	 (cons (coeff term) term-list))
+	(t (adjoin-term-dense term (cons 0 term-list)))))
+
+(defun dense-first-term (term-list)
+  (make-term (- (length term-list) 1) (car term-list)))
+
+(defun dense-rest-terms (term-list)
+  (cdr term-list))
+
+;;;;2.90
+
+(defun adjoin-term-sparse (term term-list)
+  (funcall (my-get 'adjoin-term 'sparse) term term-list))
+
+(defun first-term (term-list) (apply-generic 'first-term term-list))
+
+(defun rest-terms (term-list) (apply-generic 'rest-terms term-list))
+
+(defun install-sparse-term-list-package ()
+  (labels ((tag (x) (attach-tag 'sparse x))
+	   (adjoin-term-sparse (term term-list)
+	     (cond ((=zero? (coeff term)) term-list)
+		   (t
+		    (cons term term-list))))
+	   (first-term (term-list) (car term-list))
+	   (rest-terms (term-list) (cdr term-list)))
+    (my-put 'adjoin-term 'sparse 
+	    #'(lambda (term term-list)
+		(tag (adjoin-term-sparse term term-list))))
+    (my-put 'first-term '(sparse) #'first-term)
+    (my-put 'rest-terms '(sparse) #'rest-terms)
+    'done))
+
+(install-sparse-term-list-package)
+
+(defun install-dense-term-list-package ()
+  (labels ((tag (x) (attach-tag 'dense x))
+	   (adjoin-term-dense (term term-list)
+	     (cond ((order
+	     
