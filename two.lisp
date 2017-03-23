@@ -2624,7 +2624,7 @@
 ;;;;2.89
 (defun adjoin-term-dense (term term-list)
   (cond ((=zero? (coeff term)) term-list)
-	((equ? (order term) (- (length term-list) 1)) 
+	((equ? (order term) (length term-list)) 
 	 (cons (coeff term) term-list))
 	(t (adjoin-term-dense term (cons 0 term-list)))))
 
@@ -2636,8 +2636,11 @@
 
 ;;;;2.90
 
-(defun adjoin-term-sparse (term term-list)
-  (funcall (my-get 'adjoin-term 'sparse) term term-list))
+(defun the-sparse-empty-termlist ()
+  (funcall (my-get 'the-empty-termlist 'sparse)))
+
+(defun the-dense-empty-termlist ()
+  (funcall (my-get 'the-empty-termlist 'dense)))
 
 (defun first-term (term-list) (apply-generic 'first-term term-list))
 
@@ -2649,6 +2652,40 @@
 	     (cond ((=zero? (coeff term)) term-list)
 		   (t
 		    (cons term term-list))))
+	   (add-terms (l1 l2)
+	     (cond ((empty-termlist? l1) l2)
+		   ((empty-termlist? l2) l1)
+		   (t 
+		    (let ((t1 (first-term l1))
+			  (t2 (first-term l2)))
+		      (cond ((> (order t1) (order t2))
+			     (adjoin-term-sparse t1 (add-terms (rest-terms l1) l2)))
+			    ((< (order t1) (order t2))
+			     (adjoin-term-sparse t2 (add-terms l1 (rest-terms l2))))
+			    (t
+			     (adjoin-term-sparse
+			      (make-term (order t1)
+					 (add (coeff t1) (coeff t2)))
+			      (add-terms (rest-terms l1)
+					 (rest-terms l2)))))))))
+	   (the-empty-termlist ()
+	     (the-sparse-empty-termlist))
+	   (mul-terms (l1 l2)
+	     (if (empty-termlist? l1)
+		 (the-empty-termlist)
+		 (add-terms (mul-term-by-all-terms (first-term l1) l2)
+			    (mul-terms (rest-terms l1) l2))))
+	   (mul-term-by-all-terms (t1 l)
+	     (if (empty-termlist? l)
+		 (the-empty-termlist)
+		 (let ((t2 (first-term l)))
+		   (adjoin-term-sparse
+		    (make-term (+ (order t1) (order t2))
+			       (mul (coeff t1) (coeff t2)))
+		    (mul-term-by-all-terms t1 (rest-terms l))))))
+	   (the-empty-termlist () (tag '()))
+	   (empty-termlist? (term-list)
+	     (null term-list))
 	   (first-term (term-list) (car term-list))
 	   (rest-terms (term-list) (cdr term-list)))
     (my-put 'adjoin-term 'sparse 
@@ -2656,6 +2693,10 @@
 		(tag (adjoin-term-sparse term term-list))))
     (my-put 'first-term '(sparse) #'first-term)
     (my-put 'rest-terms '(sparse) #'rest-terms)
+    (my-put 'the-empty-termlist 'sparse #'the-empty-termlist)
+    (my-put 'empty-termlist? '(sparse) #'empty-termlist?)
+    (my-put 'add-terms '(sparse sparse) #'(lambda (l1 l2) (tag (add-terms l1 l2))))
+    (my-put 'mul-terms '(sparse sparse) #'(lambda (l1 l2) (tag (mul-terms l1 l2))))
     'done))
 
 (install-sparse-term-list-package)
@@ -2663,5 +2704,83 @@
 (defun install-dense-term-list-package ()
   (labels ((tag (x) (attach-tag 'dense x))
 	   (adjoin-term-dense (term term-list)
-	     (cond ((order
-	     
+	     (cond ((equ? (order term) (length term-list))
+		    (cons (coeff term) term-list))
+		   (t 
+		    (adjoin-term-dense term (cons 0 term-list)))))
+	   (the-empty-termlist ()
+	     (tag '()))
+	   (add-terms (l1 l2)
+	     (cond ((empty-termlist? l1) l2)
+		   ((empty-termlist? l2) l1)
+		   (t 
+		    (let ((t1 (first-term l1))
+			  (t2 (first-term l2)))
+		      (cond ((> (order t1) (order t2))
+			     (adjoin-term-dense t1 (add-terms (rest-terms l1) l2)))
+			    ((< (order t1) (order t2))
+			     (adjoin-term-dense t2 (add-terms l1 (rest-terms l2))))
+			    (t
+			     (adjoin-term-dense
+			      (make-term (order t1)
+					 (add (coeff t1) (coeff t2)))
+			      (add-terms (rest-terms l1)
+					 (rest-terms l2)))))))))
+	   (the-empty-termlist ()
+	     (the-sparse-empty-termlist))
+	   (mul-terms (l1 l2)
+	     (if (empty-termlist? l1)
+		 (the-empty-termlist)
+		 (add-terms (mul-term-by-all-terms (first-term l1) l2)
+			    (mul-terms (rest-terms l1) l2))))
+	   (mul-term-by-all-terms (t1 l)
+	     (if (empty-termlist? l)
+		 (the-empty-termlist)
+		 (let ((t2 (first-term l)))
+		   (adjoin-term-dense
+		    (make-term (+ (order t1) (order t2))
+			       (mul (coeff t1) (coeff t2)))
+		    (mul-term-by-all-terms t1 (rest-terms l))))))
+	   (empty-termlist? (term-list)
+	     (null term-list))
+	   (first-term (term-list)
+	     (make-term (car term-list) (- (length term-list) 1)))
+	   (rest-terms (term-list)
+	     (cdr term-list)))
+    (my-put 'adjoin-term 'dense 
+	    #'(lambda (term term-list)
+		(tag (adjoin-term-dense term term-list))))
+    (my-put 'first-term '(dense) #'first-term)
+    (my-put 'rest-terms '(dense) #'rest-terms)
+    (my-put 'the-empty-termlist 'dense #'the-empty-termlist)
+    (my-put 'empty-termlist? '(dense) #'empty-termlist?)
+    (my-put 'add-terms '(dense dense) #'(lambda (l1 l2) (tag (add-terms l1 l2))))
+    (my-put 'mul-terms '(dense dense) #'(lambda (l1 l2) (tag (mul-terms l1 l2))))
+    'done))
+(install-dense-term-list-package)
+
+(defun add-terms (l1 l2) (apply-generic 'add-terms l1 l2))
+(defun mul-terms (l1 l2) (apply-generic 'mul-terms l1 l2))
+
+(defun adjoin-term (term term-list)
+  (let ((type-tags (type-tag term-list)))
+    (let ((proc (my-get 'adjoin-term type-tags)))
+      (if proc
+	  (funcall proc term (contents term-list))
+	  (error "not this type in package -- adjoin-term ~A" (list type-tags))))))
+
+
+            
+
+(let ((spar (the-sparse-empty-termlist))
+      (dens (the-dense-empty-termlist))
+      (term (make-term 2 3))
+      (t2 (make-term 3 3)))
+  (labels ((show (x)
+	     (format t "~%~A~%" x)))
+    (show (adjoin-term term spar))
+    (show (adjoin-term term dens))))
+
+
+;;;;2.91
+
