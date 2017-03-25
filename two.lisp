@@ -2079,6 +2079,7 @@
 	    #'(lambda (x) (tag x)))
     (my-put 'sine '(scheme-number) #'(lambda (x) (tag (sin x))))
     (my-put 'cosine '(scheme-number) #'(lambda (x) (tag (cos x))))
+
     'done))
 
 ;;安装算术包并定义常规数的构造函数
@@ -2446,19 +2447,18 @@
 	((equ? x (raise (project x)))
 	 (drop (project x)))
 	(t x)))
+;(my-put 'drop '(drop) #'drop)
 
 (defun apply-generic (op &rest args)
   (let ((type-tags (mapcar #'type-tag args)))
     (let ((proc (my-get op type-tags)))
       (if proc
 	  (let ((res (apply proc (mapcar #'contents args))))
-	    (if (or (eq op 'add) (eq op 'sub) (eq op 'mul) (eq op 'div))
-		(drop res)
-		res))
+	    res)
 
 	  (let ((hig-type-tag (higher-type type-tags)))
 	    (let ((new-type-tags (mapcar #'(lambda (x) hig-type-tag) type-tags)))
-	      (if (my-get 'op new-type-tags)
+	      (if (my-get op new-type-tags)
 		  (let ((new-args (mapcar #'(lambda (x)
 					      (raise-to-type x hig-type-tag))
 					  args)))
@@ -2545,6 +2545,9 @@
 	    #'(lambda (var terms) (tag (make-poly var terms))))
     'done))
 
+(install-polynomial-package)
+
+
 ;;;定义多项式加法的项表
 
 (defun add-terms (l1 l2)
@@ -2565,10 +2568,9 @@
 (defun minus-terms (l)
   (cond ((empty-termlist? l) (the-empty-termlist))
 	(t
-	 (let ((term (first-term l)))
-	   (adjoin-term (make-term (order term)
-				   (sub 0 (coeff term)))
-			(minus-terms (rest-terms l)))))))
+	 (let ((term (make-term 0 -1)))
+	   (let ((termlist (adjoin-term term (the-empty-termlist))))
+	     (mul-terms l termlist))))))
 
 (defun sub-terms (l1 l2)
   (add-terms l1 (minus-terms l2)))
@@ -2733,7 +2735,17 @@
 
      (show (add-terms l2 l2))
      (show (mul-terms l2 l2))
+
+     (show (sub-terms l2 l1))
     
+
+     (let ((p1 (make-polynomial 'x l1))
+	   (p2 (make-polynomial 'x l2)))
+       (show (add p1 p2))
+       ;(show (sub p1 p2))
+       ;(show (mul p1 p2))
+       (show p1)
+       (show p2))
      (show "test end")
      'done)))
 
@@ -2760,6 +2772,13 @@
 ;;;;2.92
 
 
+;;都写了‘这绝不简单’，先绕过，回头补上。
+;;写下大体的思路。三种情况需要处理。第一、两个多项式有同一变元。这种情况无需做特别处理。直接相加即可。第二、两个多项式有不同的变元，并且各自的系数中也不存在于另一个相同的变元。这种情况也可以直接相加。第三、就是x的多项式的系数可能是y的多项式。y的多项式的系数是x的多项式。这两个多项式相加就会稍微麻烦一些。首先，要有一个函数来判断这种情况。其次，还要有一个函数来转换其中的一个多项式到另一个多项式。使其具有相同的变元。而题目要求的是要通过加入强制性的变量序来达到目的。需要raise和drop函数来操作这个强制的过程。假定所有的多项式都以x作为变元。drop函数把所有的多项式都转换成为x作为变元的多项式。
+
+;;难点就在与多项式的转化上。转化之后要变成标准格式的多项式。涉及到按变元次数进行排序的问题。
+
 
 							  
+
+
 								     
