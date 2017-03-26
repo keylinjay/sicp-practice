@@ -2453,8 +2453,8 @@
   (let ((type-tags (mapcar #'type-tag args)))
     (let ((proc (my-get op type-tags)))
       (if proc
-	  (let ((res (apply proc (mapcar #'contents args))))
-	    res)
+	  (apply proc (mapcar #'contents args))
+	    
 
 	  (let ((hig-type-tag (higher-type type-tags)))
 	    (let ((new-type-tags (mapcar #'(lambda (x) hig-type-tag) type-tags)))
@@ -2462,7 +2462,7 @@
 		  (let ((new-args (mapcar #'(lambda (x)
 					      (raise-to-type x hig-type-tag))
 					  args)))
-		    (apply #'apply-generic (cons op new-args)))
+		    (drop (apply #'apply-generic (cons op new-args))))
 		  (error "not these type methods--apply-generic ~A" (list op type-tags new-type-tags)))))))))
 		  
 ;;;;2.86
@@ -2514,7 +2514,9 @@
 		 (make-poly (variable p1)
 			    (add-terms (term-list p1)
 				       (term-list p2)))
-		 (error "polys not in same variable -- add-poly ~A" (list p1 p2))))
+		 (add-poly (change-var-to-x (tag p1))
+			   (change-var-to-x (tag p2)))))
+;		 (error "polys not in same variable -- add-poly ~A" (list p1 p2))))
 	   (mul-poly (p1 p2)
 	     (if (same-variable? (variable p1) (variable p2))
 		 (make-poly (variable p1)
@@ -2529,6 +2531,11 @@
 		 (error "poly not in same variable -- mul-poly ~A" (list p1 p2))))
 	   
 	   (tag (p) (attach-tag 'polynomial p)))
+
+    (my-put 'variable '(polynomial) #'variable)
+    
+    (my-put 'term-list '(polynomial) #'term-list)
+    
     (my-put 'add '(polynomial polynomial)
 	    #'(lambda (p1 p2) (tag (add-poly p1 p2))))
 
@@ -2547,6 +2554,8 @@
 
 (install-polynomial-package)
 
+(defun variable (p) (apply-generic 'variable p))
+(defun term-list (p) (apply-generic 'term-list p))
 
 ;;;定义多项式加法的项表
 
@@ -2616,7 +2625,6 @@
 	   terms))
 
 ;;;;2.87
-
 ;;添加到polynomial的算数包中。
 
 ;;;;2.88
@@ -2740,10 +2748,10 @@
     
 
      (let ((p1 (make-polynomial 'x l1))
-	   (p2 (make-polynomial 'x l2)))
+	   (p2 (make-polynomial 'y l2)))
        (show (add p1 p2))
-       ;(show (sub p1 p2))
-       ;(show (mul p1 p2))
+;       (show (sub p1 p2))
+ ;      (show (mul p1 p2))
        (show p1)
        (show p2))
      (show "test end")
@@ -2778,7 +2786,39 @@
 ;;难点就在与多项式的转化上。转化之后要变成标准格式的多项式。涉及到按变元次数进行排序的问题。
 
 
-							  
+
+(defun change-var-to-x (p)
+  (accumulate #'add
+	      (make-polynomial 'x (the-empty-termlist))
+	      (mapcar #'(lambda (term)
+			  (make-polynomial 'x term))
+		     
+		      (change-term-to-x (variable p)  (term-list p)))))
+
+(defun polynomial? (x)
+  (eq (type-tag x) 'polynomial))
+
+(defun change-term-to-x (var term)
+  (let ((term-c (coeff term))
+	(trans-c 1)
+	(trans-o (order term)))
+    (let ((new-p (make-polynomial var
+				  (adjoin-term (make-term trans-o trans-c)
+					       (the-empty-termlist)))))
+      (let ((p-x (make-polynomial 'x
+				  (adjoin-term (make-term 0 new-p)
+					       (the-empty-termlist)))))
+							
+	(cond ((not (polynomial? (coeff term)))
+	       term)
+	      ((eq 'x (variable (coeff term)))
+	       (mul term-c p-x))
+	      (t
+	       (mul (change-var-to-x term-c) p-x)))))))
+	 
+	       
 
 
-								     
+
+
+
