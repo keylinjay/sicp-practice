@@ -2509,14 +2509,65 @@
 	     (and (variable? v1)
 		  (variable? v2)
 		  (eq v1 v2)))
+	   (polynomial? (p)
+	     (eq 'polynomial (type-tag p)))
+
+	   (coeff->n (p c)
+	     (let ((var (variable p))
+		   (termlist (term-list p)))
+	       (format t "~% var termlist is ~A in coeff->1 ~%" (list var termlist))
+	       (let ((new-termlist (adjoin-term (make-term (order (first-term termlist)) c)
+						(the-empty-termlist))))
+		 (format t "~%the new-termlist is ~A~%" new-termlist)
+		 (make-polynomial var new-termlist))))
+
+	   (var->x (p c)
+	     (let ((new-var 'x)
+		   (new-termlist (adjoin-term (make-term 0 (coeff->n p c))
+					      (the-empty-termlist))))
+	       (format t "var->x is ~%~A~%" (list new-var new-termlist))
+	       (make-poly new-var new-termlist)))
+
+	   (p->x (p)
+	     (format t "~%~A" (list p (term-list p)))
+	     (let ((c (coeff (first-term (term-list p)))))
+	       		   
+	       (cond ((eq 'x (variable p))
+		      p)
+		     ((not (polynomial? c))
+		      (var->x p c))
+		     ((eq (variable c) 'x)
+		      (mul-poly (contents c) (var->x p 1)))
+		     (t 
+		      (mul-poly (change-var (contents c))
+				(var->x p 1))))))
+
+	   (termlist->terms (termlist)
+	     (cond ((empty-termlist? termlist)
+		    '())
+		   ((=zero? (coeff (first-term termlist)))
+		    (termlist->terms (rest-terms termlist)))
+		   (t
+		    (cons (adjoin-term (first-term termlist) (the-empty-termlist))
+			  (termlist->terms (rest-terms termlist))))))
+	   
+	   (change-var (p)
+	     (accumulate #'add-poly
+			 (make-poly 'x (the-empty-termlist))
+			 (mapcar #'p->x
+				 (mapcar #'(lambda (term)
+					     (format t "the div p is ~%~A" (list (variable p) term))
+					     (make-poly (variable p) term))
+					 (termlist->terms (term-list p))))))
+	   
 	   (add-poly (p1 p2)
 	     (if (same-variable? (variable p1) (variable p2))
 		 (make-poly (variable p1)
 			    (add-terms (term-list p1)
 				       (term-list p2)))
-		 (add-poly (change-var-to-x (tag p1))
-			   (change-var-to-x (tag p2)))))
-;		 (error "polys not in same variable -- add-poly ~A" (list p1 p2))))
+		 (add-poly (change-var p1)
+			   (change-var p2))))
+
 	   (mul-poly (p1 p2)
 	     (if (same-variable? (variable p1) (variable p2))
 		 (make-poly (variable p1)
@@ -2784,40 +2835,6 @@
 ;;写下大体的思路。三种情况需要处理。第一、两个多项式有同一变元。这种情况无需做特别处理。直接相加即可。第二、两个多项式有不同的变元，并且各自的系数中也不存在于另一个相同的变元。这种情况也可以直接相加。第三、就是x的多项式的系数可能是y的多项式。y的多项式的系数是x的多项式。这两个多项式相加就会稍微麻烦一些。首先，要有一个函数来判断这种情况。其次，还要有一个函数来转换其中的一个多项式到另一个多项式。使其具有相同的变元。而题目要求的是要通过加入强制性的变量序来达到目的。需要raise和drop函数来操作这个强制的过程。假定所有的多项式都以x作为变元。drop函数把所有的多项式都转换成为x作为变元的多项式。
 
 ;;难点就在与多项式的转化上。转化之后要变成标准格式的多项式。涉及到按变元次数进行排序的问题。
-
-
-
-(defun change-var-to-x (p)
-  (accumulate #'add
-	      (make-polynomial 'x (the-empty-termlist))
-	      (mapcar #'(lambda (term)
-			  (make-polynomial 'x term))
-		     
-		      (change-term-to-x (variable p)  (term-list p)))))
-
-(defun polynomial? (x)
-  (eq (type-tag x) 'polynomial))
-
-(defun change-term-to-x (var term)
-  (let ((term-c (coeff term))
-	(trans-c 1)
-	(trans-o (order term)))
-    (let ((new-p (make-polynomial var
-				  (adjoin-term (make-term trans-o trans-c)
-					       (the-empty-termlist)))))
-      (let ((p-x (make-polynomial 'x
-				  (adjoin-term (make-term 0 new-p)
-					       (the-empty-termlist)))))
-							
-	(cond ((not (polynomial? (coeff term)))
-	       term)
-	      ((eq 'x (variable (coeff term)))
-	       (mul term-c p-x))
-	      (t
-	       (mul (change-var-to-x term-c) p-x)))))))
-	 
-	       
-
 
 
 
