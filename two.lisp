@@ -2515,21 +2515,21 @@
 	   (coeff->n (p c)
 	     (let ((var (variable p))
 		   (termlist (term-list p)))
-	       (format t "~% var termlist is ~A in coeff->1 ~%" (list var termlist))
+	       ;(format t "~% var termlist is ~A in coeff->1 ~%" (list var termlist))
 	       (let ((new-termlist (adjoin-term (make-term (order (first-term termlist)) c)
 						(the-empty-termlist))))
-		 (format t "~%the new-termlist is ~A~%" new-termlist)
+		 ;(format t "~%the new-termlist is ~A~%" new-termlist)
 		 (make-polynomial var new-termlist))))
 
 	   (var->x (p c)
 	     (let ((new-var 'x)
 		   (new-termlist (adjoin-term (make-term 0 (coeff->n p c))
 					      (the-empty-termlist))))
-	       (format t "var->x is ~%~A~%" (list new-var new-termlist))
+	      ; (format t "var->x is ~%~A~%" (list new-var new-termlist))
 	       (make-poly new-var new-termlist)))
 
 	   (p->x (p)
-	     (format t "~%~A" (list p (term-list p)))
+	     ;(format t "~%~A" (list p (term-list p)))
 	     (let ((c (coeff (first-term (term-list p)))))
 	       		   
 	       (cond ((eq 'x (variable p))
@@ -2556,7 +2556,7 @@
 			 (make-poly 'x (the-empty-termlist))
 			 (mapcar #'p->x
 				 (mapcar #'(lambda (term)
-					     (format t "the div p is ~%~A" (list (variable p) term))
+					     ;(format t "the div p is ~%~A" (list (variable p) term))
 					     (make-poly (variable p) term))
 					 (termlist->terms (term-list p))))))
 	   
@@ -2573,13 +2573,22 @@
 		 (make-poly (variable p1)
 			    (mul-terms (term-list p1)
 				       (term-list p2)))
-		 (error "poly not in same variable -- mul-poly ~A" (list p1 p2))))
+		 (mul-poly (change-var p1)
+			   (change-var p2))))
 	   (sub-poly (p1 p2)
 	     (if (same-variable? (variable p1) (variable p2))
 		 (make-poly (variable p1)
 			    (sub-terms (term-list p1)
 				       (term-list p2)))
-		 (error "poly not in same variable -- mul-poly ~A" (list p1 p2))))
+		 (sub-poly (change-var p1)
+			   (change-var p2))))
+	   (div-poly (p1 p2)
+	     (if (same-variable? (variable p1) (variable p2))
+		 (make-poly (variable p1)
+			    (div-terms (term-list p1)
+				       (term-list p2)))
+		 (div-poly (change-var p1)
+			   (change-var p2))))
 	   
 	   (tag (p) (attach-tag 'polynomial p)))
 
@@ -2595,6 +2604,8 @@
     
     (my-put 'mul '(polynomial polynomial)
 	    #'(lambda (p1 p2) (tag (mul-poly p1 p2))))
+    (my-put 'div '(polynomial polynomial)
+	    #'(lambda (p1 p2) (tag (div-poly p1 p2))))
     ;;2.87 add =zero?
     (my-put '=zero? '(polynomial) 
 	    #'(lambda (p) (empty-termlist? (term-list p))))
@@ -2801,8 +2812,9 @@
      (let ((p1 (make-polynomial 'x l1))
 	   (p2 (make-polynomial 'y l2)))
        (show (add p1 p2))
+       (show (add p2 (add p1 p2)))
 ;       (show (sub p1 p2))
- ;      (show (mul p1 p2))
+;       (show (mul p1 p2))
        (show p1)
        (show p2))
      (show "test end")
@@ -2836,6 +2848,9 @@
 
 ;;难点就在与多项式的转化上。转化之后要变成标准格式的多项式。涉及到按变元次数进行排序的问题。
 
+;;答案已经写在上面了。思路就是将多项式的每一项分解并逐个检查并变换每一项的变远到x。然后将转换好的每一项再加起来。
 
+
+;;;;2.93
 
 
