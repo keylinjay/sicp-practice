@@ -2075,6 +2075,11 @@
 	    #'(lambda (x y) (tag (* x y))))
     (my-put 'div '(scheme-number scheme-number)
 	    #'(lambda (x y) (tag (/ x y))))
+    (my-put 'gcd '(scheme-number scheme-number)
+	    #'(lambda (x y) (tag (my-gcd x y))))
+    (my-put 'reduce '(scheme-number scheme-number)
+	    #'(lambda (x y) (tag (let ((g (greatest-common-divisor x y)))
+				   (list (/ x g) (/ y g))))))
     (my-put 'make 'scheme-number
 	    #'(lambda (x) (tag x)))
     (my-put 'sine '(scheme-number) #'(lambda (x) (tag (sin x))))
@@ -2095,22 +2100,23 @@
   (labels ((numer (x) (car x))
 	   (denom (x) (cdr x))
 	   (make-rat (n d)
-	     (let ((g (gcd n d)))
-	       (cons (/ n g) (/ d g))))
+	     
+	     (cons (car (my-reduce n d))
+		   (cadr (my-reduce n d))))
 	   (add-rat (x y)
-	     (make-rat (+ (* (numer x) (denom y))
-			  (* (denom x) (numer y)))
-		       (* (denom x) (denom y))))
+	     (make-rat (add (mul (numer x) (denom y))
+			    (mul (denom x) (numer y)))
+		       (mul (denom x) (denom y))))
 	   (sub-rat (x y)
-	     (make-rat (- (* (numer x) (denom y))
-			  (* (denom x) (numer y)))
-		       (* (denom x) (denom y))))
+	     (make-rat (sub (mul (numer x) (denom y))
+			    (mul (denom x) (numer y)))
+		       (mul (denom x) (denom y))))
 	   (mul-rat (x y)
-	     (make-rat (* (numer x) (numer y))
-		       (* (denom x) (denom y))))
+	     (make-rat (mul (numer x) (numer y))
+		       (mul (denom x) (denom y))))
 	   (div-rat (x y)
-	     (make-rat (* (numer x) (denom y))
-		       (* (denom x) (numer y))))
+	     (make-rat (mul (numer x) (denom y))
+		       (mul (denom x) (numer y))))
 	   (tag (x) (attach-tag 'rational x)))
     (my-put 'add '(rational rational)
 	    #'(lambda (x y) (tag (add-rat x y))))
@@ -2576,6 +2582,7 @@
 		 (mul-poly (change-var p1)
 			   (change-var p2))))
 	   (sub-poly (p1 p2)
+	     ;(format t "sub the ~%~A~%" (list p1 p2))
 	     (if (same-variable? (variable p1) (variable p2))
 		 (make-poly (variable p1)
 			    (sub-terms (term-list p1)
@@ -2587,8 +2594,22 @@
 		 (make-poly (variable p1)
 			    (div-terms (term-list p1)
 				       (term-list p2)))
-		 (div-poly (change-var p1)
-			   (change-var p2))))
+		 (error "the p1 p2 not same var ~A" (list p1 p2))))
+
+	   (gcd-poly (p1 p2)
+	     (if (same-variable? (variable p1) (variable p2))
+		 (make-poly (variable p1)
+			    (gcd-terms (term-list p1)
+				       (term-list p2)))
+		 (error "the p1 p2 not same var ~A" (list p1 p2))))
+	   (reduce-poly (p1 p2)
+	     (format t "~% t1 t2 is ~A" (list (term-list p1)
+					      (term-list p2)))
+	     (if (same-variable? (variable p1) (variable p2))
+		 (make-poly (variable p1)
+			    (reduce-terms (term-list p1)
+					  (term-list p2)))
+		 (error "the p1 p2 not same var ~A" (list p1 p2))))
 	   
 	   (tag (p) (attach-tag 'polynomial p)))
 
@@ -2606,12 +2627,17 @@
 	    #'(lambda (p1 p2) (tag (mul-poly p1 p2))))
     (my-put 'div '(polynomial polynomial)
 	    #'(lambda (p1 p2) (tag (div-poly p1 p2))))
+    (my-put 'gcd '(polynomial polynomial)
+	    #'(lambda (p1 p2) (tag (gcd-poly p1 p2))))
+    (my-put 'reduce '(polynomial polynomial)
+	    #'(lambda (p1 p2) (tag (reduce-poly p1 p2))))
     ;;2.87 add =zero?
     (my-put '=zero? '(polynomial) 
 	    #'(lambda (p) (empty-termlist? (term-list p))))
 
     (my-put 'make 'polynomial
 	    #'(lambda (var terms) (tag (make-poly var terms))))
+    
     'done))
 
 (install-polynomial-package)
@@ -2653,9 +2679,14 @@
 		 (mul-terms (rest-terms l1) l2))))
 
 (defun mul-term-by-all-terms (t1 l)
+  ;(format t "~%the l is~A~%" l)
   (if (empty-termlist? l)
       (the-empty-termlist)
       (let ((t2 (first-term l)))
+	;(format t "~%the t1-o t2-o t1-c t2-c is~A~%" (list (order t1)
+	;						   (order t2)
+	;						   (coeff t1)
+	;						   (coeff t2)))
 	(adjoin-term
 	 (make-term (+ (order t1) (order t2))
 		    (mul (coeff t1) (coeff t2)))
@@ -2742,6 +2773,8 @@
     (my-put 'empty-termlist? '(sparse) #'empty-termlist?)
     (my-put 'add-terms '(sparse sparse) #'(lambda (l1 l2) (tag (add-terms l1 l2))))
     (my-put 'mul-terms '(sparse sparse) #'(lambda (l1 l2) (tag (mul-terms l1 l2))))
+    (my-put 'div-terms '(sparse sparse) #'(lambda (l1 l2)
+					    (tag (div-terms l1 l2))))
     'done))
 
 (install-sparse-term-list-package)
@@ -2773,6 +2806,8 @@
     (my-put 'empty-termlist? '(dense) #'empty-termlist?)
     (my-put 'add-terms '(dense dense) #'(lambda (l1 l2) (tag (add-terms l1 l2))))
     (my-put 'mul-terms '(dense dense) #'(lambda (l1 l2) (tag (mul-terms l1 l2))))
+    (my-put 'div-terms '(dense dense) #'(lambda (l1 l2)
+					    (tag (div-terms l1 l2))))
     'done))
 (install-dense-term-list-package)
 
@@ -2788,6 +2823,65 @@
 (defun the-empty-termlist () (the-sparse-empty-termlist))
             
 
+
+
+
+;;;;2.91
+
+(defun div-terms (l1 l2)
+  (if (empty-termlist? l1)
+      (list (the-empty-termlist) (the-empty-termlist))
+      (let ((t1 (first-term l1))
+	    (t2 (first-term l2)))
+	;(format t "~%div-terms l1 t1 l2 t2 is ~A~%" (list l1 t1 l2 t2))
+	(if (> (order t2) (order t1))
+	   
+	    (list (the-empty-termlist) l1)
+	    (let ((new-c (div (coeff t1) (coeff t2)))
+		  (new-o (- (order t1) (order t2))))
+	      (let ((rest-of-result (div-terms (sub-terms l1 
+							  (mul-terms l2
+								     (adjoin-term (make-term new-o new-c)
+										  (the-empty-termlist))))
+					       l2)))
+		;(format t "~%the rest-of-result is ~A~%" (list rest-of-result))
+		(list (add-terms (car rest-of-result) 
+				 (adjoin-term (make-term new-o new-c)
+					      (the-empty-termlist)))
+		      (cadr rest-of-result))))))))
+
+;;;;2.92
+
+
+;;都写了‘这绝不简单’，先绕过，回头补上。
+;;写下大体的思路。三种情况需要处理。第一、两个多项式有同一变元。这种情况无需做特别处理。直接相加即可。第二、两个多项式有不同的变元，并且各自的系数中也不存在于另一个相同的变元。这种情况也可以直接相加。第三、就是x的多项式的系数可能是y的多项式。y的多项式的系数是x的多项式。这两个多项式相加就会稍微麻烦一些。首先，要有一个函数来判断这种情况。其次，还要有一个函数来转换其中的一个多项式到另一个多项式。使其具有相同的变元。而题目要求的是要通过加入强制性的变量序来达到目的。需要raise和drop函数来操作这个强制的过程。假定所有的多项式都以x作为变元。drop函数把所有的多项式都转换成为x作为变元的多项式。
+
+;;难点就在与多项式的转化上。转化之后要变成标准格式的多项式。涉及到按变元次数进行排序的问题。
+
+;;答案已经写在上面了，见install-polynomial-package的change-var。思路就是将多项式的每一项分解并逐个检查并变换每一项的变远到x。然后将转换好的每一项再加起来。
+
+;;修改mul函数以处理多项式乘其他类型数据的问题。
+(defun mul (x y)
+  (let ((tag1 (type-tag x))
+	(tag2 (type-tag y)))
+    (cond ((and (eq tag1 'polynomial)
+		 (not (eq tag2 'polynomial)))
+	   (let ((new-y (make-polynomial (variable x)
+					 (adjoin-term (make-term 0 y)
+						      (the-empty-termlist)))))
+	     (mul x new-y)))
+	  ((and (eq tag2 'polynomial)
+		(not (eq tag1 'polynomial)))
+	   (let ((new-x (make-polynomial (variable y)
+					 (adjoin-term (make-term 0 x)
+						      (the-empty-termlist)))))
+	     (mul new-x y)))
+	  (t 
+	   (apply-generic 'mul x y)))))
+
+
+
+
 (let ((spar (the-sparse-empty-termlist))
       (dens (the-dense-empty-termlist))
       (t1 (make-term 2 3))
@@ -2801,56 +2895,140 @@
      (show l2)
      (show (add-terms l1 l1))
      (show (mul-terms l1 l1))
-    
-
      (show (add-terms l2 l2))
      (show (mul-terms l2 l2))
-
      (show (sub-terms l2 l1))
-    
-
      (let ((p1 (make-polynomial 'x l1))
 	   (p2 (make-polynomial 'y l2)))
        (show (add p1 p2))
        (show (add p2 (add p1 p2)))
-;       (show (sub p1 p2))
-;       (show (mul p1 p2))
+       
+       (show (sub p1 p2))
+       (show (mul p1 p2))
+       (show (div p1 p1))
        (show p1)
        (show p2))
      (show "test end")
      'done)))
 
-
-;;;;2.91
-
-(defun div-terms (l1 l2)
-  (if (empty-termlist? l1)
-      (list (the-empty-termlist) (the-empty-termlist))
-      (let ((t1 (first-term l1))
-	    (t2 (first-term l2)))
-	(if (> (order t2) (order t1))
-	    (list (the-empty-termlist) l1)
-	    (let ((new-c (div (coeff t1) (coeff t2)))
-		  (new-o (- (order t1) (order t2))))
-	      (let ((rest-of-result (div-terms (sub-terms l1 
-							  (mul-terms l2
-								     (make-term new-o new-c)))
-					       l2)))
-		(list (add-terms (car rest-of-result) 
-				 (make-term new-o new-c))
-		      (cadr rest-of-result))))))))
-
-;;;;2.92
-
-
-;;都写了‘这绝不简单’，先绕过，回头补上。
-;;写下大体的思路。三种情况需要处理。第一、两个多项式有同一变元。这种情况无需做特别处理。直接相加即可。第二、两个多项式有不同的变元，并且各自的系数中也不存在于另一个相同的变元。这种情况也可以直接相加。第三、就是x的多项式的系数可能是y的多项式。y的多项式的系数是x的多项式。这两个多项式相加就会稍微麻烦一些。首先，要有一个函数来判断这种情况。其次，还要有一个函数来转换其中的一个多项式到另一个多项式。使其具有相同的变元。而题目要求的是要通过加入强制性的变量序来达到目的。需要raise和drop函数来操作这个强制的过程。假定所有的多项式都以x作为变元。drop函数把所有的多项式都转换成为x作为变元的多项式。
-
-;;难点就在与多项式的转化上。转化之后要变成标准格式的多项式。涉及到按变元次数进行排序的问题。
-
-;;答案已经写在上面了。思路就是将多项式的每一项分解并逐个检查并变换每一项的变远到x。然后将转换好的每一项再加起来。
-
-
 ;;;;2.93
+
+
+
+
+;;;;2.94
+(defun my-gcd (a b)
+  (if (= b 0)
+      a
+      (my-gcd b (mod a b))))
+
+(defun remainder-terms (l1 l2)
+  (cadr (div-terms l1 l2)))
+
+(defun gcd-terms (l1 l2)
+  (format t "~% gcd-terms l1 l2 is ~A" (list l1 l2))
+  (labels ((s-gcd (l1 l2)
+	    
+	     (cond ((empty-termlist? l2) l1)
+		   (t
+		    (s-gcd l2 (pseudoremainder-terms l1 l2)))))
+    
+	   (gcd-n (l)
+	     (cond ((empty-termlist? l) 0)
+		   (t
+		    (gcd (coeff (first-term l))
+			 (gcd-n (rest-terms l))))))
+	   (div-n (l n)
+	     (cond ((empty-termlist? l) 
+		    (the-empty-termlist))
+		   (t
+		    (add-terms (adjoin-term (make-term (order (first-term l))
+						       (/ (coeff (first-term l)) n))
+					    (the-empty-termlist))
+			       (div-n (rest-terms l) n))))))
+    (cond ((empty-termlist? l1) l2)
+	  ((empty-termlist? l2) l1)
+	  (t
+	   (let ((o1 (order (first-term l1)))
+		 (o2 (order (first-term l2))))
+	     (let ((n-res (if (> o2 o1)
+			      (s-gcd l2 l1)
+			      (s-gcd l1 l2))))
+	       (format t "~% s-gcd is ~A" n-res)
+	       (div-n n-res (gcd-n n-res))))))
+	   
+    ))
+	    
+
+
+
+(defun greatest-common-divisor (a b)
+  (apply-generic 'gcd a b))
+
+
+
+;;;;2.95
+
+
+;;;;2.96
+(defun my-pow (n e)
+  (cond ((= e 0) 1)
+	((= e 1) n)
+	((evenp e) (my-pow (square n) (/ e 2)))
+	(t (* n (my-pow n (- e 1))))))
+	 
+
+(defun pseudoremainder-terms (l1 l2)
+  (format t "~%in pseudoremainder-terms~A~%" (list l1 l2))
+  (let ((t1 (first-term l1))
+	(t2 (first-term l2)))
+    (let ((t2-c (coeff t2))
+	  (e (+ 1 (- (order t1) (order t2)))))
+      (format t "~% t1 t2 t2-c e is ~A:" (list t1 t2 t2-c e))
+      (cadr (div-terms (mul-terms l1 (adjoin-term (make-term 0 (my-pow t2-c e))
+				      (the-empty-termlist)))
+		       l2)))))
+
+;;;;2.97
+
+(defun reduce-terms (n d)
+  (let ((g (gcd-terms n d)))
+    (list (div-terms n g)
+	  (div-terms d g))))
+
+(defun my-reduce (n d) (apply-generic 'reduce n d))
+
+
+;;2.93
+(let (( p1 (make-polynomial 'x '(sparse (2 1) (0 1))))
+     ( p2 (make-polynomial 'x '(sparse (3 1) (0 1)))))
+  (let ((rf (make-rational p2 p1)))
+    (format t "~% rf is ~A~%" rf)))
+
+;;2.95
+
+(let ((p1 (make-polynomial 'x '(sparse (2 1) (1 -2) (0 1))))
+      (p2 (make-polynomial 'x '(sparse (2 11) (0 7))))
+      (p3 (make-polynomial 'x '(sparse (1 13) (0 5)))))
+  (format t "~%res is ~A" (greatest-common-divisor (mul p1 p2)
+						   (mul p1 p3))))
+
+(let ((p1 (make-polynomial 'x '(sparse (4 1) (3 -1) (2 -2) (1 2))))
+      (p2 (make-polynomial 'x '(sparse (3 1) (1 -1)))))
+  (format t "~%res is ~A" (greatest-common-divisor p1 p2)))
+
+
+(let ((p1 (make-polynomial 'x '(sparse (1 1) (0 1))))
+      (p2 (make-polynomial 'x '(sparse (3 1) (0 -1))))
+      (p3 (make-polynomial 'x '(sparse (1 1))))
+      (p4 (make-polynomial 'x '(sparse (2 1) (0 -1)))))
+  (let (;(rf1 (make-rational p1 p2))
+	;(rf2 (make-rational p3 p4))
+	)
+    ;(format t "~% reduce p1 p2 ~A" (my-reduce p1 p2))
+    ;(format t "~%rf1 is ~A" rf1)
+    ;(format t "~%rf2 is ~A" rf2)
+    ;(format t "~%res is ~A" (add rf1 rf2))
+    (format t "~%the end!")))
 
 
