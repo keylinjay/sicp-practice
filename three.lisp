@@ -134,16 +134,60 @@
 ;;;;3.1.2
 
 (defun estimate-pi (trials)
-  (sqrt (/ 6 (monte-carlo trials cesaro-test))))
+  (sqrt (/ 6 (monte-carlo trials #'cesaro-test))))
 
 (defun cesaro-test ()
-  (= (gcd (rand) (rand)) 1))
+  (= (gcd (funcall *rand*) (funcall *rand*)) 1))
 (defun monte-carlo (trials experiment)
   (labels ((iter (trials-remaining trials-passed)
-	     (cond ((= trials-ramaining 0)
+	     (cond ((= trials-remaining 0)
 		    (/ trials-passed trials))
-		   ((experiment)
+		   ((funcall experiment)
 		    (iter (- trials-remaining 1) (+ trials-passed 1)))
 		   (t
 		    (iter (- trials-remaining 1) trials-passed)))))
     (iter trials 0)))
+
+(defun rand-update (x)
+  (mod (+ (* x 1)
+	  3)
+       10))
+
+(defun make-rand ()
+  (let ((x 4))
+    #'(lambda ()
+	(setq x (rand-update x))
+	x)))
+(defvar *rand* (make-rand))
+
+
+;;;;3.5
+
+(defun random-in-range (low hig)
+  (let ((range (- hig low)))
+    (+ low (random (* 1.0 range)))))
+
+(defun estimate-integral (fp x1 y1 x2 y2 trials)
+  (* (- x2 x1)
+     (- y2 y1)
+     (monte-carlo trials #'(lambda ()
+			     (let ((r (/ (- x2 x1) 2)))
+			       (funcall fp
+					(random-in-range x1 x2)
+					(random-in-range y1 y2)
+					r))))))
+
+(defun square (x) (* x x))
+
+(defun get-pi (trials)
+  (estimate-integral #'(lambda (x y r)
+			 (<= (+ (square x)
+				(square y))
+			     r))
+		     -1.0
+		     -1.0
+		     1.0
+		     1.0
+		     trials))
+;;;;3.6
+
