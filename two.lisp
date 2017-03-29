@@ -2606,9 +2606,10 @@
 	     (format t "~% t1 t2 is ~A" (list (term-list p1)
 					      (term-list p2)))
 	     (if (same-variable? (variable p1) (variable p2))
-		 (make-poly (variable p1)
-			    (reduce-terms (term-list p1)
-					  (term-list p2)))
+		 (mapcar #'(lambda (termlist)
+			     (make-poly (variable p1) termlist))
+			 (reduce-terms (term-list p1)
+				       (term-list p2)))
 		 (error "the p1 p2 not same var ~A" (list p1 p2))))
 	   
 	   (tag (p) (attach-tag 'polynomial p)))
@@ -2630,7 +2631,8 @@
     (my-put 'gcd '(polynomial polynomial)
 	    #'(lambda (p1 p2) (tag (gcd-poly p1 p2))))
     (my-put 'reduce '(polynomial polynomial)
-	    #'(lambda (p1 p2) (tag (reduce-poly p1 p2))))
+	    #'(lambda (p1 p2) (mapcar #'(lambda (p) (tag p))
+				      (reduce-poly p1 p2))))
     ;;2.87 add =zero?
     (my-put '=zero? '(polynomial) 
 	    #'(lambda (p) (empty-termlist? (term-list p))))
@@ -2993,8 +2995,8 @@
 
 (defun reduce-terms (n d)
   (let ((g (gcd-terms n d)))
-    (list (div-terms n g)
-	  (div-terms d g))))
+    (list (car (div-terms n g))
+	  (car (div-terms d g)))))
 
 (defun my-reduce (n d) (apply-generic 'reduce n d))
 
@@ -3022,13 +3024,14 @@
       (p2 (make-polynomial 'x '(sparse (3 1) (0 -1))))
       (p3 (make-polynomial 'x '(sparse (1 1))))
       (p4 (make-polynomial 'x '(sparse (2 1) (0 -1)))))
-  (let (;(rf1 (make-rational p1 p2))
-	;(rf2 (make-rational p3 p4))
+  (let ((rf1 (make-rational p1 p2))
+	(rf2 (make-rational p3 p4))
 	)
-    ;(format t "~% reduce p1 p2 ~A" (my-reduce p1 p2))
-    ;(format t "~%rf1 is ~A" rf1)
-    ;(format t "~%rf2 is ~A" rf2)
-    ;(format t "~%res is ~A" (add rf1 rf2))
+    (format t "~% reduce p1 p2 ~A" (my-reduce p1 p2))
+    (format t "~% reduce p3 p4 ~A" (my-reduce p3 p4))
+    (format t "~%rf1 is ~A" rf1)
+    (format t "~%rf2 is ~A" rf2)
+    (format t "~%res is ~A" (add rf1 rf2))
     (format t "~%the end!")))
 
-
+;;结果是正确的。但是都是负数，需要乘-1修正一下。
