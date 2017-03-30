@@ -90,21 +90,29 @@
 		   "insuffcient funds"))
 	     (deposit (amount)
 	       (setq balance (+ balance amount)))
-	     (reset-count () (setq counter 1))
-	     
-	     (dispatch (mp mf)
-	       (if (eq mp psw)
-		   (progn 
-		     (reset-count)
-		     (cond ((eq mf 'withdraw) #'withdraw)
-			   ((eq mf 'deposit) #'deposit)
-			   (t (error "unkown request -- make-account ~A" mf))))
-		   (cond ((>= counter 7)
-			  #'(lambda (m) "call-the-cops"))
-			 (t
 
-			  (setq counter (+ counter 1))
-			  #'(lambda (m) "incorrect password"))))))
+	     (reset-count () (setq counter 1))
+
+	 	     
+	     (dispatch (mp mf)
+	       (cond ((eq mp psw)
+		      (progn
+			(reset-count)
+			(cond ((eq mf 'withdraw) #'withdraw)
+			     ((eq mf 'deposit) #'deposit)
+			   
+			     (t (error "unkown request -- make-account ~A" mf)))))
+		     ((eq mp 'check)
+		      (if (eq mf psw)
+			  t
+			  nil))
+		     (t
+		      (cond ((>= counter 7)
+			     #'(lambda (m) "call-the-cops"))
+			    (t
+			     
+			     (setq counter (+ counter 1))
+			     #'(lambda (m) "incorrect password")))))))
       #'dispatch)))
 
 (let ((acc (make-account 100 'aaa)))
@@ -189,5 +197,69 @@
 		     1.0
 		     1.0
 		     trials))
+
 ;;;;3.6
 
+(defun make-rand (random-init)
+  (let ((x random-init))
+    #'(lambda (m)
+	(cond ((eq m 'generate)
+	       (progn (setq x (rand-update x))
+		      x))
+	      ((eq m 'reset)
+	       #'(lambda (new-value)
+		   (setq x new-value)))))))
+
+(let ((rand (make-rand 0)))
+  (show (funcall rand 'generate))
+  (show (funcall (funcall rand 'reset) 4))
+  (show "end"))
+
+
+;;;;3.7
+
+(defun make-joint (acc pwd n-pwd)
+  (if (funcall acc 'check pwd)
+      #'(lambda (mp mf)
+	  (if (eq mp n-pwd)
+	      (funcall acc pwd mf)
+	      "inccorect password"))
+      "inccorect password"))
+
+(let ((peter-acc (make-account 100 'aaa)))
+  (let ((paul-acc (make-joint peter-acc 'aaa 'bbb))
+	(paul2-acc (make-joint peter-acc 'a 'bbb)))
+    (show (funcall (funcall peter-acc 'aaa 'withdraw)
+		   10))
+    (show (funcall peter-acc 'check 'aaa))
+    (show (funcall (funcall paul-acc 'bbb 'withdraw)
+		   10))
+    
+    (show paul2-acc)
+    (show "3.7 end")))
+
+;;;;3.8
+
+(defun make-f ()
+  (let ((x nil))
+    #'(lambda (n)
+	(if x
+	    0
+	    (progn (setq x t)
+		   n)))))
+		  
+
+
+;;;;3.11
+
+;;每次执行(make-account 100)都会创建一个新的环境。局部状态分别保存在不同的环境中。
+;;acc和acc2共享的部分只有make-account的外部环境。
+
+
+
+(let ((x (cons 'a 'b))
+      (y (cons 'c 'd)))
+  (show x)
+  (setf (cdr x) y)
+  (show x)
+  (show "end"))
