@@ -256,10 +256,22 @@
 ;;acc和acc2共享的部分只有make-account的外部环境。
 
 
+;;所谓的setf，只不过是一个宏。在car赋值的时候展开为(setq x (cons y (cdr x))),在赋值cdr的时候展开为(setq x (cons (car x) y)).不能将setf定义为函数的原因是，函数执行的时候将会创建新的环境和形参的约束。这样在函数内操作的只是该框架内的参数，并不能影响外部的需要修改的变量。
+
+
 
 (let ((x (cons 'a 'b))
       (y (cons 'c 'd)))
   (show x)
-  (setf (cdr x) y)
+  ;;set-cdr!的原理
+  (setq x (cons (car x) y))
+  (show x)
+  ;;set-car!的原理
+  (setq x (cons y (cdr x)))
+  (show x)
+  ;;在参数里执行setf并不会影响外面的x，这就是词法作用域。函数内的框架遮蔽了外面的。
+  (show (setf (car x) y))
   (show x)
   (show "end"))
+
+
