@@ -399,5 +399,334 @@
 	 queue)))
 	   
 ;;;;3.23
+;;思路是将数据部分做成双向链表。这样通过一个数据就能在一步之内找到下一个或者上一个。
+
+(defun make-dlink (val) (cons (cons val 'start) 'end))
+(defun pre-dlink (x) (cdar x))
+(defun nxt-dlink (x) (cdr x))
+(defun val-dlink (x) (caar x))
+(defun start-dlink? (x) (eq (pre-dlink x) 'start))
+(defun end-dlink? (x) (eq (nxt-dlink x) 'end))
+(defun set-pre! (x item) (set-cdr! (car x) item))
+(defun set-nxt! (x item) (set-cdr! x item))
+(defun pre-insert-dlink! (x1 x2)
+  (set-nxt! x2 x1)
+  (set-pre! x1 x2))
+(defun nxt-insert-dlink! (x1 x2)
+  (set-nxt! x1 x2)
+  (set-pre! x2 x1))
+(defun separate-dlink (x1 x2) 
+  (set-nxt! x1 'end)
+  (set-pre! x2 'start))
+(defun print-dlink (x)
+  (cond ((eq x 'end)
+	 nil)
+	(t
+	 (cons (val-dlink x)
+	       (print-dlink (nxt-dlink x))))))
+
+(defun make-deque () (cons '() '()))
+(defun front-ptr (queue) (car queue))
+(defun rear-ptr (queue) (cdr queue))
+(defun set-front-ptr! (queue item) (set-car! queue item))
+(defun set-rear-ptr! (queue item) (set-cdr! queue item))
+(defun empty-deque? (queue) (null (front-ptr queue)))
+(defun front-deque (queue)
+  (if (empty-deque? queue)
+      (error "front called empty deque/~A" queue)
+      (front-ptr queue)))
+(defun rear-deque (queue) 
+  (if (empty-deque? queue)
+      (error "rear called empty deque~A" queue)
+      (rear-ptr queue)))
+(defun front-insert-deque! (queue item)
+  (let ((new-dlink (make-dlink item)))
+    (cond ((empty-deque? queue)
+	   (set-front-ptr! queue new-dlink)
+	   (set-rear-ptr! queue new-dlink)
+	   queue)
+	  (t
+	   (pre-insert-dlink! (front-deque queue) new-dlink)
+	   (set-front-ptr! queue new-dlink)
+	   queue))))
+
+(defun rear-insert-deque! (queue item)
+  (let ((new-dlink (make-dlink item)))
+    (cond ((empty-deque? queue)
+	   (set-front-ptr! queue new-dlink)
+	   (set-rear-ptr! queue new-dlink)
+	   queue)
+	  (t
+	   (nxt-insert-dlink! (rear-deque queue) new-dlink)
+	   (set-rear-ptr! queue new-dlink)
+	   queue))))
+(defun front-delete-deque! (queue)
+  (cond ((empty-deque? queue)
+	 (error "delete empty deque ~A" queue))
+	(t
+	 (let ((old-front (front-deque queue))
+	       (new-front (nxt-dlink (front-deque queue))))
+	   (cond ((end-dlink? old-front)
+		  (set-front-ptr! queue nil)
+		  (set-rear-ptr! queue nil))
+		 (t
+		  (set-front-ptr! queue new-front)
+		  (separate-dlink old-front new-front)
+		  queue))))))
+(defun rear-delete-deque! (queue)
+  (if (empty-deque? queue)
+      (error "delete empty deque ~A" queue)
+      (let ((old-rear (rear-deque queue))
+	    (new-rear (pre-dlink (rear-deque queue))))
+	(cond ((start-dlink? old-rear)
+	   (set-rear-ptr! queue nil)
+	       (set-front-ptr! queue nil))
+	      (t
+	       (set-rear-ptr! queue new-rear)
+	       (separate-dlink new-rear old-rear)
+	       queue)))))
+(defun print-deque (queue)
+  (cond ((empty-deque? queue)
+	 nil)
+	(t
+	 (print-dlink (front-deque queue)))))
+
+(let ((dq (make-deque)))
+  (show (print-deque dq))
+  (show (print-deque (front-insert-deque! dq 'a)))
+  (show (print-deque (front-insert-deque! dq 'b)))
+  (show (print-deque (front-insert-deque! dq 'b)))
+  (show (print-deque (rear-insert-deque! dq 'b)))
+  (show (print-deque (rear-insert-deque! dq 'b)))
+  (show (print-deque (front-delete-deque! dq)))
+  (show (print-deque (rear-delete-deque! dq)))
+  (show (print-deque (rear-delete-deque! dq)))
+  (show (print-deque (rear-delete-deque! dq)))
+  (show (print-deque (rear-delete-deque! dq)))
+ 
+  (show "3.23 end"))
 
 
+
+(defun lookup (key table)
+  (let ((record (my-assoc key (cdr table))))
+    (if record
+	(cdr record)
+	nil)))
+
+(defun my-assoc (key records)
+  (cond ((null records) nil)
+	((equal key (caar records))
+	 (car records))
+	(t
+	 (my-assoc key (cdr records)))))
+
+(defun insert! (key value table)
+  (let ((record (my-assoc key (cdr table))))
+    (if record
+	(set-cdr! record value)
+	(set-cdr! table
+		  (cons (cons key value) (cdr table))))
+    'ok))
+
+;;ps 无赋值的版本可以这样
+(defun my-insert (key value table)
+  (let ((record (my-assoc key (cdr table))))
+    (if record
+	(cons (car table)
+	      (mapcar #'(lambda (r)
+			  (if (equal (car r) key)
+			      (cons key value)))
+		      (cdr table)))
+	(cons (car table)
+	      (cons (cons key value) (cdr table))))))
+
+(defun make-table () (list '*table*))
+(let ((table (make-table)))
+  (show (insert! 'a 1 table))
+  (show table)
+  (show (my-insert 'b 2 table))
+  (show table)
+  (show "test end"))
+
+;;无赋值的版本最后还是要赋值才能更新table的。但是把赋值操作减少到了一个。
+
+
+(defun lookup (key-1 key-2 table)
+  (let ((subtable (my-assoc key-1 (cdr table))))
+    (if subtable
+	(let ((record (my-assoc key-2 (cdr subtable))))
+	  (if record
+	      (cdr record)
+	      nil))
+	nil)))
+
+(defun insert! (key-1 key-2 value table)
+  (let ((subtable (my-assoc key-1 (cdr table))))
+    (if subtable
+	(let ((record (my-assoc key-2 (cdr subtable))))
+	  (if record
+	   (set-cdr! record value)
+	   (set-cdr! subtable (cons (cons key-2 value)
+				    (cdr subtable)))))
+	(set-cdr! table (cons (list key-1 
+				    (cons key-2 value))
+			      (cdr table))))
+    'ok))
+
+(defun replace-value (table key fval)
+  (cons (car table)
+	(mapcar #'(lambda (st)
+		    (if (equal (car st) key)
+			(funcall fval st)
+			st))
+		(cdr table))))
+(defun my-insert (key-1 key-2 value table)
+  (let ((subtable (my-assoc key-1 (cdr table))))
+    (if subtable
+	(let ((record (my-assoc key-2 (cdr subtable))))
+	  (if record
+	      (replace-value table
+			     key-1 
+			     #'(lambda (st)
+			       (replace-value st key-2 #'(lambda (r)
+							   (cons key-2 value)))))
+	      (replace-value table
+			     key-1
+			     #'(lambda (st)
+				 (cons (car st)
+				       (cons (cons key-2 value)
+					     (cdr st)))))))
+	(cons (car table)
+	      (cons (list key-1 (cons key-2 value))
+		    (cdr table))))))
+
+(let ((table (make-table)))
+  (show (insert! 'a 'a 1 table))
+  (show (insert! 'a 'c 3 table))
+  (show table)
+  (show (my-insert 'b 'b 2 table))
+  (show (my-insert 'a 'a 2 table))
+  (show (my-insert 'a 'b 2 table))
+  (show "end"))
+
+
+(defun make-table ()
+  (let ((local-table (list '*table*)))
+    (labels ((lookup (key-1 key-2)
+	       (let ((subtable (my-assoc key-1 (cdr local-table))))
+		 (if subtable
+		     (let ((record (my-assoc key-2 (cdr subtable))))
+		       (if record
+			   (cdr record)
+			   nil))
+		     nil)))
+	     (insert! (key-1 key-2 value)
+	       (let ((subtable (my-assoc key-1 (cdr local-table))))
+		 (if subtable
+		     (let ((record (my-assoc key-2 (cdr subtable))))
+		       (if record
+			   (set-cdr! record value)
+			   (set-cdr! subtable (cons (cons key-2 value)
+						    (cdr subtable)))))
+		     (set-cdr! local-table
+			       (cons (list key-1 (cons key-2 value))
+				     (cdr local-table))))
+		 'ok))
+	     (dispatch (m)
+	       (cond ((eq m 'lookup-proc) #'lookup)
+		     ((eq m 'insert-proc!) #'insert!)
+		     (t
+		      (error "unkown operation -- table~A" m)))))
+      #'dispatch)))
+
+(let ((operation-table (make-table)))
+  (let ((get (funcall operation-table 'lookup-proc))
+	(put (funcall operation-table 'insert-proc!)))
+    (funcall put 'a 'a 1)
+    (funcall put 'a 'b 2)
+    (show (funcall get 'a 'b))
+    (show "end")))
+
+;;;;3.24
+(defun make-table (same-key?)
+  (let ((table (list '*table*)))
+    (labels ((my-assoc (key records)
+	       (cond ((null records) nil)
+		     ((funcall same-key? key (caar records))
+		      (car records))
+		     (t
+		      (my-assoc key (cdr records)))))
+	     (lookup (key-1 key-2)
+	       (let ((subtable (my-assoc key-1 (cdr table))))
+		 (if subtable 
+		     (let ((record (my-assoc key-2 (cdr subtable))))
+		       (if record
+			   (cdr record)
+			   nil))
+		     nil)))
+	     (insert! (key-1 key-2 value)
+	       (let ((subtable (my-assoc key-1 (cdr table))))
+		 (if subtable
+		     (let ((record (my-assoc key-2 (cdr subtable))))
+		       (if record
+			   (set-cdr! record value)
+			   (set-cdr! subtable (cons (cons key-2 value)
+						    (cdr subtable)))))
+		     (set-cdr! table (cons (list key-1 (cons key-2 value))
+					   (cdr table))))))
+	     (dispatch (m)
+	       (cond ((eq m 'lookup-proc) #'lookup)
+		     ((eq m 'insert-proc!) #'insert!)
+		     (t
+		      (error "unkown operation --table~A" m)))))
+      #'dispatch)))
+	       
+;;;;3.25
+(defun lookup (keys table)
+  (let ((record (my-assoc (car keys) (cdr table))))
+    (if record
+	(cond ((null (cdr keys))
+	       (cdr record))
+	      (t
+	       (lookup (cdr keys) record)))
+	nil)))
+(defun insert! (keys value table)
+  (let ((record (my-assoc (car keys) (cdr table))))
+    (if record
+	;;有记录
+	(cond ((null (cdr keys))
+	       ;;最后一个key
+	       (set-cdr! record value))
+	      (t
+	       ;;不是最后一个key
+	       (insert! (cdr keys) value record)))
+	;;无记录
+	(cond ((null (cdr keys))
+	       ;;最后一个key
+	       (set-cdr! table (cons (cons (car keys) value)
+				     (cdr table))))
+	      (t
+	       ;;不是最后一个key,(cadr table)指的是新加入key的表的位置。
+	       (set-cdr! table (cons (list (car keys)) 
+				     (cdr table)))
+	       (insert! (cdr keys) value (cadr table)))))
+    'ok))
+(let ((table (list '*table*))
+      (keys1 '(a a a a a a a a a))
+      (keys2 '(a a a a a b ab ab a))
+      (keys3 '(j a jfkdf j asdk fjsl fla f))
+      (keys4 '(i jf jalj fo jlaj fo j oai fo)))
+  (insert! keys1 1 table)
+  (show table)
+  (insert! keys2 2 table)
+  (show table)
+  (insert! keys3 3 table)
+  (show table)
+  (insert! keys4 4 table)
+  (show table)
+  (show (lookup keys4 table))
+  (show "3.25 end"))
+
+
+;;;;3.26
