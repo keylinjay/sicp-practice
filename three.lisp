@@ -730,3 +730,59 @@
 
 
 ;;;;3.26
+;;先定义二叉树
+(defun entry-tree (tree)
+  (car tree))
+(defun left-branch-tree (tree)
+  (cadr tree))
+(defun right-branch-tree (tree)
+  (caddr tree))
+(defun key (entry) (car entry))
+(defun value (entry) (cdr entry))
+(defun search-tree (key tree)
+  (cond ((null tree) nil)
+	((= key (key (entry tree)))
+	 (entry tree))
+	((< key (key (entry tree)))
+	 (search-tree key (left-branch-tree tree)))
+	((> key (key (entry tree)))
+	 (search-tree key (right-branch-tree tree)))))
+(defun adjoin-tree (entry tree)
+  (cond ((null tree) (make-tree entry '() '()))
+	((< (key entry) (key (entry-tree tree)))
+	 (make-tree (entry-tree tree)
+		    (adjoin-tree entry (left-branch-tree tree))
+		    (right-branch-tree tree)))
+	((> (key entry) (key (entry-tree tree)))
+	 (make-tree (entry-tree tree)
+		    (left-branch-tree tree)
+		    (adjoin-tree entry (right-branch-tree tree))))
+	((= (key entry) (key (entry-tree tree)))
+	 (make-tree entry
+		    (left-branch-tree tree)
+		    (right-branch-tree tree)))))
+
+(defun make-table ()
+  (let ((table (list '*table*)))
+    (labels ((my-assoc (key records)
+	       (search-tree key records))
+	     (lookup (key)
+	       (let ((record (my-assoc key (cdr table))))
+		 (if record
+		     (value record)
+		     nil)))
+	     (insert! (key value)
+	       (let ((record (my-assoc key (cdr table))))
+		 (if record
+		     (set-cdr! record value)
+		     (set-cdr! table (cons (car table)
+					   (adjoin-tree (cons key value)
+							(cdr table)))))))
+	     (dispatch (m)
+	       (cond ((eq m 'get) #'lookup)
+		     ((eq m 'insert!) #'insert!)
+		     (t
+		      (error "not this method ~A" m)))))
+      #'dispatch)))
+		   
+	
