@@ -786,3 +786,90 @@
       #'dispatch)))
 		   
 	
+;;;;3.27
+
+(defun memo-fib
+  (memoize #'(lambda (n)
+	       (cond ((= n 0) 0)
+		     ((= n 1) 1)
+		     (t
+		      (+ (funcall memo-fib (- n 1))
+			 (funcall memo-fib (- n 2))))))))
+(defun memoize (f)
+  (let ((table (make-table)))
+    #'(lambda (x)
+	(let ((previously-computed-result (lookup x table)))
+	  (or previously-computed-result
+	      (let ((result (funcall f x)))
+		(insert! x result table)
+		result))))))
+
+;;换成(memoize fib)能工作但是就没有记忆优化了。
+
+;;;;3.3.4数字电路模拟器
+
+(defun half-adder (a b s c)
+  (let ((d (make-wire))
+	(e (make-wire)))
+    (or-gate a b d)
+    (and-gate a b c)
+    (inverter c e)
+    (and-gate d e s)
+    'ok))
+(defun full-adder (a b c-in sum c-out)
+  (let ((s (make-wire))
+	(c1 (make-wire))
+	(c2 (make-wire)))
+    (half-adder b c-in s c1)
+    (half-adder a s sum c2)
+    (or-gate c1 c2 c-out)
+    'ok))
+(defun inverter (input output)
+  (labels ((invert-input ()
+	     (let ((new-value (logical-not (get-signal input))))
+	       (after-delay *inverter-delay*
+			    #'(lambda ()
+				(set-signal! output new-value))))))
+    (add-action! input invert-input)
+    'ok))
+(defun logical-not (s)
+  (cond ((= s 0) 1)
+	((= s 1) 0)
+	(t
+	 (error "invalid signal ~A" s))))
+(defun add-gate (a1 a2 output)
+  (labels ((and-action-procedure ()
+	     (let ((new-value (logical-and (get-signal a1) (get-signal a2))))
+	       (after-delay *and-gate-delay*
+			    #'(lambda ()
+				(set-signal! output new-value))))))
+    (add-action! a1 and-action-procedure)
+    (add-action! a2 and-action-procedure)
+    'ok))
+(defun logical-and (s1 s2)
+  (cond ((and (= s1 1) (= s2 1)) 1)
+	(t 0)))
+;;;;3.28
+(defun or-gate (a1 a2 output)
+  (labels ((or-action-procedure ()
+	     (let ((new-value (logical-or (get-signal a1) (get-signal a2))))
+	       (after-delay *or-gate-delay*
+			    #'(lambda ()
+				(set-signal! output new-value))))))
+    (add-action! a1 or-action-procedure)
+    (add-action! a2 or-action-procedure)
+    'ok))
+(defun logical-or (s1 s2)
+  (cond ((or (= s1 1) (= s2 1)) 1)
+	(t 0)))
+;;;;3.29
+(defun or-gate (a1 a2 output)
+  (let ((na1 (make-wire))
+	(na2 (make-wire))
+	(na1a2 (make-wire)))
+    (inverter a1 na1)
+    (inverter a2 na2)
+    (and-gate na1 na2 na1a2)
+    (inverter na1a2 output)
+    'ok))
+;;;;3.30
