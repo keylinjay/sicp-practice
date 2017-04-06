@@ -788,13 +788,13 @@
 	
 ;;;;3.27
 
-(defun memo-fib
+(defun memo-fib ()
   (memoize #'(lambda (n)
 	       (cond ((= n 0) 0)
 		     ((= n 1) 1)
 		     (t
-		      (+ (funcall memo-fib (- n 1))
-			 (funcall memo-fib (- n 2))))))))
+		      (+ (funcall (memo-fib) (- n 1))
+			 (funcall (memo-fib) (- n 2))))))))
 (defun memoize (f)
   (let ((table (make-table)))
     #'(lambda (x)
@@ -873,3 +873,46 @@
     (inverter na1a2 output)
     'ok))
 ;;;;3.30
+(defun ripple-carry-adder (ak bk c-in sk c-out)
+  (cond ((null ak) (list c-out sk))
+	(t
+	 (let ((c (make-wire)))
+	   (full-adder (car ak) (car bk) c-in (car sk) c-out)
+	   (adder (cdr ak) (cdr bk) c-out (cdr sk) c)))))
+
+;;;((2*and+not+or)*2+or)*n=4n*and+2n*not+3n*or
+
+
+;;;;线路的表示
+(defun make-wire ()
+  (let ((signal-value 0)
+	(action-procedures '()))
+    (labels ((set-my-signal! (new-value)
+	       (if (not (= signal-value new-value))
+		   (progn (setq signal-value new-value)
+			  (call-each action-procedures))
+		   'done))
+	     (accept-action-procedure! (proc)
+	       (setq action-procedures (cons proc action-procedures))
+	       (funcall proc))
+	     (dispatch (m)
+	       (cond ((eq m 'get-signal) signal-value)
+		     ((eq m 'set-signal!) #'set-my-signal!)
+		     ((eq m 'add-action!) #'accept-action-procedure!)
+		     (t
+		      (error "unkown operation -- wire~A" m)))))
+      #'dispatch)))
+
+(defun call-each (procedures)
+  (if (null procedures)
+      'done
+      (progn 
+	(funcall (car procedures))
+	(call-each (cdr procedures)))))
+
+(defun get-signal (wire)
+  (funcall wire 'get-signal))
+(defun set-signal! (wire new-value) 
+  (funcall (funcall wire 'set-signal!) new-value))
+(defun add-action! (wire action-procedure)
+  (funcall (funcall wire 'add-action!) action-procedure))
