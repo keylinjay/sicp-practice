@@ -916,3 +916,79 @@
   (funcall (funcall wire 'set-signal!) new-value))
 (defun add-action! (wire action-procedure)
   (funcall (funcall wire 'add-action!) action-procedure))
+
+
+(defun after-delay (delay action)
+  (add-to-agenda! (+ delay (current-time the-agenda))
+		  action
+		  the-agenda))
+(defun propagate ()
+  (if (empty-agenda? the-agenda)
+      'done
+      (let ((first-item (first-agenda-item the-agenda)))
+	(funcall first-item)
+	(remove-first-agenda-item! the-agenda)
+	(propagate))))
+;;;;3.31
+;;如果不增加这个语句。那么只有在信号发生变化时才会在待处理表中添加待处理函数。初始定义功能模块时不会添加待处理函数。这就会造成定义完成线路后执行(propagate)驱动函数不会执行该线路。因为待处理表此时为空。
+
+(defun make-time-segment (time queue)
+  (cons time queue))
+(defun segment-time (s) (car s))
+(defun segment-queue (s) (cdr s))
+
+(defun make-agenda () (list 0))
+(defun current-time (agenda) (car agenda))
+(defun set-current-time! (agenda time)
+  (set-car! agenda time))
+(defun segments (agenda) (cdr agenda))
+(defun set-segments! (agenda segments)
+  (set-cdr! agenda segments))
+(defun first-segment (agenda)
+  (car (segments agenda)))
+(defun rest-segments (agenda)
+  (cdr (segments agenda)))
+(defun empty-agenda? (agenda)
+  (null (segments agenda)))
+
+(defun add-to-agenda! (time action agenda)
+  (labels ((belongs-before? (segments)
+	     (or (null? segments)
+		 (< time (segment-time (car segments)))))
+	   (make-new-time-segment (time action)
+	     (let ((q (make-queue)))
+	       (insert-queue! q action)
+	       (make-time-segment time q)))
+	   (add-to-segments! (segments)
+	     (if (= (segment-time (car segments)) time)
+		 (insert-queue! (segment-queue (car segments))
+				action)
+		 (let ((rest (cdr segments)))
+		   (if (belongs-before? rest)
+		       (set-cdr! segments
+				 (cons (make-new-time-segment time action)
+				       (cdr segments)))
+		       (add-to-segments! rest))))))
+    (let ((segments (segments agenda)))
+      (if (belongs-before? segments)
+	  (set-segments! agenda
+			 (cons (make-new-time-segment time action)
+			       segments))
+	  (add-to-segments! segments)))))
+
+
+(defun remove-first-agenda-item! (agenda)
+  (let ((q (segment-queue (first-segment agenda))))
+    (delete-queue! q)
+    (if (empty-queue? q)
+	(set-segments! agenda (rest-segments agenda)))))
+(defun first-agenda-item (agenda)
+  (if (empty-agenda? agenda)
+      (error "agenda is empty --first-agenda-item")
+      (let ((first-seg (first-segment agenda)))
+	(set-current-time! agenda (segment-time first-seg))
+	(front-queue (segment-queue first-seg)))))
+
+;;;;3.32
+
+;;假设线路a1和a2,a1信号首先变化，状态从0 1 变 1 0，a1信号首先变化时在待处理表添加函数(lambda () (set-signal! output 1)),a2变化时则添加 (lambda () (set-signal! output 0)),先进先出最后a2的函数为最后状态。先进后出a1的待处理函数为最后状态。是不同的结果。
