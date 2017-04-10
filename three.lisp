@@ -863,7 +863,7 @@
   (cond ((or (= s1 1) (= s2 1)) 1)
 	(t 0)))
 ;;;;3.29
-(defun or-gate (a1 a2 output)
+(defun or-gate-2 (a1 a2 output)
   (let ((na1 (make-wire))
 	(na2 (make-wire))
 	(na1a2 (make-wire)))
@@ -997,6 +997,7 @@
 (defparameter *and-gate-delay* 3)
 (defparameter *or-gate-delay* 5)
 (defvar the-agenda (make-agenda))
+(setq the-agenda (make-agenda))
 ;;;定义一个监测器
 (defun probe (name wire)
   (add-action! wire
@@ -1014,3 +1015,26 @@
   (propagate)
   (set-signal! input-2 1)
   (propagate))
+
+;;;电路设计只是一个例子，其中的设计思路是值得思考的。好好想一想，在大脑里模拟整个程序的运行过程。
+
+;;;;约束的传播
+
+(defvar *C* (make-connector))
+(defvar *F* (make-connector))
+(celsius-fahrenheit-converter *C* *F*)
+
+(defun celsisus-fahrenheit-converter (*C* *F*)
+  (let ((u (make-connector))
+	(v (make-connector))
+	(w (make-connector))
+	(x (make-connector))
+	(y (make-connector)))
+    (multiplier c w u)
+    (multiplier v x u)
+    (adder v y f)
+    (constant 9 w)
+    (constant 5 x)
+    (constant 32 y)
+    'ok))
+
